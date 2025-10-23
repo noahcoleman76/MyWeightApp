@@ -3,20 +3,38 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { getItem, removeItem, setItem } from "../lib/mmkv";
 
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "high";
+export type WeightUnit = "lb" | "kg";
+export type HeightUnit = "in" | "cm";
 
 export interface Profile {
   name: string;
+  email?: string;
   gender: "male" | "female";
-  age: number;
-  height: number; // cm
-  currentWeight: number; // kg (we'll support lb later)
+  age: number;                 // years
+  height: number;              // cm
+  currentWeight: number;       // kg
+  startingWeightKg?: number;   // kg  <-- NEW
   activityLevel: ActivityLevel;
-  startDate: string; // ISO
+  startDate: string;           // ISO
+  weightUnit?: WeightUnit;     // display preference
+  heightUnit?: HeightUnit;     // display preference
+  motivation?: string[];
+  concerns?: string[];
 }
 
 type ProfileStore = {
   profile: Profile;
   setName: (name: string) => void;
+  setEmail: (email?: string) => void;
+  setGender: (g: "male" | "female") => void;
+  setAgeFromBirthYear: (year: number) => void;
+  setHeightCm: (cm: number) => void;
+  setCurrentWeightKg: (kg: number) => void;
+  setStartingWeightKg: (kg: number) => void; // <-- NEW
+  setActivity: (a: ActivityLevel) => void;
+  setUnits: (w: WeightUnit, h: HeightUnit) => void;
+  setMotivation: (vals: string[]) => void;
+  setConcerns: (vals: string[]) => void;
   reset: () => void;
 };
 
@@ -24,27 +42,46 @@ const defaultProfile: Profile = {
   name: "You",
   gender: "male",
   age: 25,
-  height: 180,
-  currentWeight: 90,
+  height: 175,
+  currentWeight: 80,
+  startingWeightKg: 80, // default to current
   activityLevel: "light",
   startDate: new Date().toISOString(),
+  weightUnit: "lb",
+  heightUnit: "in",
 };
 
 export const useProfileStore = create<ProfileStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       profile: defaultProfile,
       setName: (name) => set((s) => ({ profile: { ...s.profile, name } })),
+      setEmail: (email) => set((s) => ({ profile: { ...s.profile, email } })),
+      setGender: (gender) => set((s) => ({ profile: { ...s.profile, gender } })),
+      setAgeFromBirthYear: (year) =>
+        set((s) => ({
+          profile: { ...s.profile, age: Math.max(0, Math.min(120, new Date().getFullYear() - year)) },
+        })),
+      setHeightCm: (height) => set((s) => ({ profile: { ...s.profile, height } })),
+      setCurrentWeightKg: (currentWeight) => set((s) => ({ profile: { ...s.profile, currentWeight } })),
+      setStartingWeightKg: (kg) => set((s) => ({ profile: { ...s.profile, startingWeightKg: kg } })), // NEW
+      setActivity: (activityLevel) => set((s) => ({ profile: { ...s.profile, activityLevel } })),
+      setUnits: (weightUnit, heightUnit) => set((s) => ({ profile: { ...s.profile, weightUnit, heightUnit } })),
+      setMotivation: (motivation) => set((s) => ({ profile: { ...s.profile, motivation } })),
+      setConcerns: (concerns) => set((s) => ({ profile: { ...s.profile, concerns } })),
       reset: () => set({ profile: defaultProfile }),
     }),
     {
       name: "profileStore",
-      storage: createJSONStorage(() => ({
-        getItem,
-        setItem,
-        removeItem,
-      })),
-      version: 1,
+      storage: createJSONStorage(() => ({ getItem, setItem, removeItem })),
+      version: 4, // bumped due to new field
+      migrate: (persisted: any, _v) => {
+        // If migrating from older versions, fill startingWeightKg if missing
+        if (persisted?.state?.profile && persisted.state.profile.startingWeightKg == null) {
+          persisted.state.profile.startingWeightKg = persisted.state.profile.currentWeight ?? 80;
+        }
+        return persisted;
+      },
     }
   )
 );
