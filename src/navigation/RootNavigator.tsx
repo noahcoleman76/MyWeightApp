@@ -18,11 +18,11 @@ import Motivation from "../screens/Onboarding/Motivation";
 import Splash from "../screens/Onboarding/Splash";
 import TargetDate from "../screens/Onboarding/TargetDate";
 import Paywall from "../screens/Paywall/Index";
-import TabNavigator from "./TabNavigator";
-
 import { useAppStore } from "../state/appStore";
 import { useGoalStore } from "../state/goalStore";
 import { useSubscriptionStore } from "../state/subscriptionStore";
+import { AppTheme } from "../styles/theme";
+import TabNavigator from "./TabNavigator";
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -71,8 +71,18 @@ export default function RootNavigator() {
   }, [isLoggedIn, onboardingDone, isEntitled]);
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <Stack.Navigator initialRouteName={initial} screenOptions={{ headerTitleAlign: "center" }}>
+    <NavigationContainer theme={AppTheme}>
+      <Stack.Navigator
+        screenOptions={{
+          headerTitleAlign: "center",
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: AppTheme.colors.card },
+          headerTitleStyle: { fontWeight: "600", fontSize: 18 },
+          contentStyle: { backgroundColor: AppTheme.colors.background },
+          animation: "fade_from_bottom",
+          gestureEnabled: true,
+        }}
+      >
         <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }} />
 
         {/* Marketing / Welcome slides */}

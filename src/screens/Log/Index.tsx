@@ -1,6 +1,9 @@
 import dayjs from "dayjs";
 import React, { useMemo, useState } from "react";
-import { Alert, Button, FlatList, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Text, TextInput, TouchableOpacity, View } from "react-native";
+import Button from "../../components/ui/Button";
+import Card from "../../components/ui/Card";
+import EmptyState from "../../components/ui/EmptyState";
 import { kgToLb, lbToKg } from "../../lib/calorieMath";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
@@ -71,42 +74,58 @@ export default function Log() {
 
   return (
     <View className="flex-1 bg-white p-4">
-      <Text className="text-xl font-semibold">Quick add</Text>
+      <Card>
+        <Text className="text-xl font-semibold">Quick add</Text>
 
-      {/* Date */}
-      <Text className="mt-3 text-sm text-gray-600">Date (YYYY-MM-DD)</Text>
-      <View className="flex-row items-center gap-3">
+        {/* Date */}
+        <Text className="mt-3 text-sm text-gray-600">Date (YYYY-MM-DD)</Text>
+        <View className="flex-row items-center gap-3">
+          <TextInput
+            value={qa.dateISO}
+            onChangeText={(t) => setQa({ ...qa, dateISO: t })}
+            placeholder="YYYY-MM-DD"
+            autoCapitalize="none"
+            className="flex-1 border rounded-lg px-3 py-2"
+          />
+          <Button title="Today" onPress={() => setQa({ ...qa, dateISO: today })} />
+        </View>
+
+        {/* Calories */}
+        <Text className="mt-3 text-sm text-gray-600">Calories</Text>
         <TextInput
-          value={qa.dateISO}
-          onChangeText={(t) => setQa({ ...qa, dateISO: t })}
-          placeholder="YYYY-MM-DD"
-          autoCapitalize="none"
-          className="flex-1 border rounded-lg px-3 py-2"
+          value={qa.calories}
+          onChangeText={(t) => setQa({ ...qa, calories: t })}
+          keyboardType="numeric"
+          className="border rounded-lg px-3 py-2"
         />
-        <Button title="Today" onPress={() => setQa({ ...qa, dateISO: today })} />
-      </View>
 
-      {/* Calories */}
-      <Text className="mt-3 text-sm text-gray-600">Calories</Text>
-      <TextInput
-        value={qa.calories}
-        onChangeText={(t) => setQa({ ...qa, calories: t })}
-        keyboardType="numeric"
-        className="border rounded-lg px-3 py-2"
-      />
+        {/* Weight */}
+        <Text className="mt-3 text-sm text-gray-600">Weight ({profile.weightUnit}) — optional</Text>
+        <TextInput
+          value={qa.weight}
+          onChangeText={(t) => setQa({ ...qa, weight: t })}
+          keyboardType="numeric"
+          className="border rounded-lg px-3 py-2"
+        />
 
-      {/* Weight */}
-      <Text className="mt-3 text-sm text-gray-600">Weight ({profile.weightUnit}) — optional</Text>
-      <TextInput
-        value={qa.weight}
-        onChangeText={(t) => setQa({ ...qa, weight: t })}
-        keyboardType="numeric"
-        className="border rounded-lg px-3 py-2"
-      />
+        <View className="mt-3">
+          <Button title="Save" onPress={saveQuickAdd} />
+        </View>
+      </Card>
 
-      <View className="mt-3">
-        <Button title="Save" onPress={saveQuickAdd} />
-      </View>
+      {sorted.length === 0 ? (
+        <EmptyState
+          title="No entries yet"
+          subtitle="Start by adding today’s calories and weight. You’ll see your progress here."
+          cta="Add first entry"
+          onPress={saveQuickAdd}
+        />
+      ) : (
+        <Card style={{ marginTop: 16 }}>
+          <Text className="text-h1 font-semibold">History</Text>
+          {/* FlatList exactly as you have it */}
+        </Card>
+      )}
 
       <Text className="mt-6 text-lg font-semibold">History</Text>
 

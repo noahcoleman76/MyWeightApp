@@ -1,8 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
 import dayjs from "dayjs";
 import React, { useMemo } from "react";
-import { Button, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { VictoryAxis, VictoryBar, VictoryChart, VictoryLine } from "victory-native";
+import Button from "../../components/ui/Button";
+import Card from "../../components/ui/Card";
+import SectionHeader from "../../components/ui/SectionHeader";
 import { computeDailyTarget, kgToLb } from "../../lib/calorieMath";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
@@ -71,8 +74,8 @@ export default function Dashboard() {
     goalWeightKg == null
       ? undefined
       : profile.weightUnit === "kg"
-      ? `${Math.round(goalWeightKg)} kg`
-      : `${Math.round(kgToLb(goalWeightKg))} lb`;
+        ? `${Math.round(goalWeightKg)} kg`
+        : `${Math.round(kgToLb(goalWeightKg))} lb`;
 
   // ----- Estimated completion (based on simple energy math) -----
   // If goal < current: need loss; deficit/day = maintenance - effectiveTarget (must be >0)
@@ -109,65 +112,71 @@ export default function Dashboard() {
 
   return (
     <View className="flex-1 bg-white p-4">
-      <Text className="text-2xl font-semibold">Dashboard</Text>
+      <SectionHeader title="Dashboard" subtitle={`Hello, ${profile.name}`} />
       <Text className="mt-1 text-gray-600">Hello, {profile.name}</Text>
 
-      <View className="mt-4 p-4 rounded-xl border">
-        <Text>Mode: <Text className="font-semibold">{mode}</Text></Text>
-        <Text className="mt-1">Maintenance: <Text className="font-semibold">{maintenance} kcal</Text></Text>
-        <Text className="mt-1">
-          Daily Target: <Text className="font-semibold">{effectiveTarget} kcal</Text>
-          {dailyTargetOverride != null ? <Text className="text-gray-500"> (manual)</Text> : null}
-        </Text>
-        <Text className="mt-1">
-          Current: <Text className="font-semibold">{currentWDisplay}</Text>
-          {latestLogged != null ? <Text className="text-gray-500"> (from log)</Text> : null}
-        </Text>
-        {profile.startingWeightKg != null ? (
+      <Card>
+        <View className="mt-4 p-4 rounded-xl border">
+          <Text>Mode: <Text className="font-semibold">{mode}</Text></Text>
+          <Text className="mt-1">Maintenance: <Text className="font-semibold">{maintenance} kcal</Text></Text>
           <Text className="mt-1">
-            Starting: <Text className="font-semibold">
-              {profile.weightUnit === "kg"
-                ? `${Math.round(profile.startingWeightKg)} kg`
-                : `${Math.round(kgToLb(profile.startingWeightKg))} lb`}
+            Daily Target: <Text className="font-semibold">{effectiveTarget} kcal</Text>
+            {dailyTargetOverride != null ? <Text className="text-gray-500"> (manual)</Text> : null}
+          </Text>
+          <Text className="mt-1">
+            Current: <Text className="font-semibold">{currentWDisplay}</Text>
+            {latestLogged != null ? <Text className="text-gray-500"> (from log)</Text> : null}
+          </Text>
+          {profile.startingWeightKg != null ? (
+            <Text className="mt-1">
+              Starting: <Text className="font-semibold">
+                {profile.weightUnit === "kg"
+                  ? `${Math.round(profile.startingWeightKg)} kg`
+                  : `${Math.round(kgToLb(profile.startingWeightKg))} lb`}
+              </Text>
             </Text>
-          </Text>
-        ) : null}
-        {goalWDisplay ? <Text className="mt-1">Goal: <Text className="font-semibold">{goalWDisplay}</Text></Text> : null}
-        {targetDateISO ? <Text className="mt-1">Target Date: <Text className="font-semibold">{targetDateISO}</Text></Text> : null}
-        <Text className="mt-1">Streak: <Text className="font-semibold">{streak()} days</Text></Text>
+          ) : null}
+          {goalWDisplay ? <Text className="mt-1">Goal: <Text className="font-semibold">{goalWDisplay}</Text></Text> : null}
+          {targetDateISO ? <Text className="mt-1">Target Date: <Text className="font-semibold">{targetDateISO}</Text></Text> : null}
+          <Text className="mt-1">Streak: <Text className="font-semibold">{streak()} days</Text></Text>
 
-        {/* Estimated completion based on maintenance vs target and weight gap */}
-        {estimate ? (
-          <Text className="mt-1">
-            Estimated completion: <Text className="font-semibold">{estimate.date}</Text>{" "}
-            <Text className="text-gray-600">(≈ {estimate.days} days)</Text>
-          </Text>
-        ) : null}
-      </View>
+          {/* Estimated completion based on maintenance vs target and weight gap */}
+          {estimate ? (
+            <Text className="mt-1">
+              Estimated completion: <Text className="font-semibold">{estimate.date}</Text>{" "}
+              <Text className="text-gray-600">(≈ {estimate.days} days)</Text>
+            </Text>
+          ) : null}
+        </View>
+      </Card>
 
-      <View className="mt-6">
-        <VictoryChart domainPadding={{ x: 12, y: 10 }}>
-          <VictoryAxis tickCount={4} style={{ tickLabels: { fontSize: 10 } }} />
-          <VictoryAxis dependentAxis style={{ tickLabels: { fontSize: 10 } }} />
-          <VictoryBar data={chartData} x="x" y="y" />
-          <VictoryLine y={() => effectiveTarget} />
-        </VictoryChart>
-      </View>
+      <Card>
+        <View className="mt-6">
+          <VictoryChart domainPadding={{ x: 12, y: 10 }}>
+            <VictoryAxis tickCount={4} style={{ tickLabels: { fontSize: 10 } }} />
+            <VictoryAxis dependentAxis style={{ tickLabels: { fontSize: 10 } }} />
+            <VictoryBar data={chartData} x="x" y="y" />
+            <VictoryLine y={() => effectiveTarget} />
+          </VictoryChart>
+        </View>
+      </Card>
 
       <View className="mt-6">
         <Button title="Add Log" onPress={() => nav.navigate("Log")} />
       </View>
 
-      <View className="mt-3 p-3 rounded-lg bg-gray-100">
-        <Text className="text-sm">
-          Today: {today.calories || 0} kcal
-          {typeof today.weightKg === "number"
-            ? profile.weightUnit === "kg"
-              ? ` • ${Math.round(today.weightKg)} kg`
-              : ` • ${Math.round(kgToLb(today.weightKg))} lb`
-            : ""}
-        </Text>
-      </View>
+      <Card>
+        <View className="mt-3 p-3 rounded-lg bg-gray-100">
+          <Text className="text-sm">
+            Today: {today.calories || 0} kcal
+            {typeof today.weightKg === "number"
+              ? profile.weightUnit === "kg"
+                ? ` • ${Math.round(today.weightKg)} kg`
+                : ` • ${Math.round(kgToLb(today.weightKg))} lb`
+              : ""}
+          </Text>
+        </View>
+      </Card>
     </View>
   );
 }
