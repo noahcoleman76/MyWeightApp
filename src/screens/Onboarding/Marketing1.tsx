@@ -5,8 +5,7 @@ export default function Marketing1() {
   return (
     <OnboardSlide
       image={require("../../../assets/images/onboarding/dashboard1.png")}
-      title="Weight loss made easy"
-      subtitle="A snapshot of your progress, at a glance."
+      title="Weight tracking made easy"
       cta="Get Started"
       nextRoute="Marketing2"
       showLoginLink

@@ -71,13 +71,13 @@ export default function RootNavigator() {
           gestureEnabled: true,
         }}
       >
-        {/* Splash shows every cold start for ~3s, then routes based on user state */}
+        {/* Splash shows every cold start for ~4s, then routes based on user state */}
         <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }} />
 
         {/* Marketing / Welcome slides */}
-        <Stack.Screen name="Marketing1" component={Marketing1} options={{ title: "Welcome" }} />
-        <Stack.Screen name="Marketing2" component={Marketing2} options={{ title: "Welcome" }} />
-        <Stack.Screen name="Marketing3" component={Marketing3} options={{ title: "Welcome" }} />
+        <Stack.Screen name="Marketing1" component={Marketing1} />
+        <Stack.Screen name="Marketing2" component={Marketing2} />
+        <Stack.Screen name="Marketing3" component={Marketing3} />
 
         {/* Data capture */}
         <Stack.Screen name="ChooseGender" component={ChooseGender} options={{ title: "Your Details" }} />
