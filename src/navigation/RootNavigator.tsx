@@ -1,32 +1,41 @@
-import { DefaultTheme, NavigationContainer, Theme } from "@react-navigation/native";
+// src/navigation/RootNavigator.tsx
+import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import React, { useEffect, useState } from "react";
-import BirthYear from "../screens/Onboarding/BirthYear";
-import ChooseGender from "../screens/Onboarding/ChooseGender";
-import Concerns from "../screens/Onboarding/Concerns";
-import CurrentWeight from "../screens/Onboarding/CurrentWeight";
-import Encouragement from "../screens/Onboarding/Encouragement";
-import GoalMode from "../screens/Onboarding/GoalMode";
-import GoalWeight from "../screens/Onboarding/GoalWeight";
-import Height from "../screens/Onboarding/Height";
-import OnboardingHowItWorks from "../screens/Onboarding/HowItWorks";
-import OnboardingLearnMore from "../screens/Onboarding/LearnMore";
+import React from "react";
+
+// Onboarding / marketing
 import Marketing1 from "../screens/Onboarding/Marketing1";
 import Marketing2 from "../screens/Onboarding/Marketing2";
 import Marketing3 from "../screens/Onboarding/Marketing3";
-import Motivation from "../screens/Onboarding/Motivation";
 import Splash from "../screens/Onboarding/Splash";
+
+// Data capture
+import BirthYear from "../screens/Onboarding/BirthYear";
+import ChooseGender from "../screens/Onboarding/ChooseGender";
+import CurrentWeight from "../screens/Onboarding/CurrentWeight";
+import GoalMode from "../screens/Onboarding/GoalMode";
+import GoalWeight from "../screens/Onboarding/GoalWeight";
+import Height from "../screens/Onboarding/Height";
 import TargetDate from "../screens/Onboarding/TargetDate";
+
+// Info / framing
+import OnboardingHowItWorks from "../screens/Onboarding/HowItWorks";
+import OnboardingLearnMore from "../screens/Onboarding/LearnMore";
+
+// Motivation
+import Concerns from "../screens/Onboarding/Concerns";
+import Encouragement from "../screens/Onboarding/Encouragement";
+import Motivation from "../screens/Onboarding/Motivation";
+
+// Paywall + main app
 import Paywall from "../screens/Paywall/Index";
-import { useAppStore } from "../state/appStore";
-import { useGoalStore } from "../state/goalStore";
-import { useSubscriptionStore } from "../state/subscriptionStore";
-import { AppTheme } from "../styles/theme";
 import TabNavigator from "./TabNavigator";
+
+import { AppTheme } from "../styles/theme";
 
 export type RootStackParamList = {
   Splash: undefined;
-  Marketing1: undefined;
+  Marketing1: undefined;  // “Welcome”
   Marketing2: undefined;
   Marketing3: undefined;
   ChooseGender: undefined;
@@ -42,37 +51,16 @@ export type RootStackParamList = {
   Concerns: undefined;
   Encouragement: undefined;
   Paywall: undefined;
-  Tabs: undefined;
+  Tabs: undefined;        // bottom tabs (Dashboard, Goals, Log, Account)
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navTheme: Theme = {
-  ...DefaultTheme,
-  colors: { ...DefaultTheme.colors, background: "white" },
-};
-
 export default function RootNavigator() {
-  const { onboardingDone, isLoggedIn } = useAppStore();
-  const isEntitled = useSubscriptionStore((s) => s.isEntitled);
-  const mode = useGoalStore((s) => s.mode);
-
-  const [initial, setInitial] = useState<keyof RootStackParamList>("Splash");
-
-  useEffect(() => {
-    // Splash decides where to go:
-    if (isLoggedIn) {
-      setInitial("Tabs");
-    } else if (!onboardingDone) {
-      setInitial("Splash");
-    } else {
-      setInitial(isEntitled ? "Tabs" : "Paywall");
-    }
-  }, [isLoggedIn, onboardingDone, isEntitled]);
-
   return (
     <NavigationContainer theme={AppTheme}>
       <Stack.Navigator
+        initialRouteName="Splash"
         screenOptions={{
           headerTitleAlign: "center",
           headerShadowVisible: false,
@@ -83,6 +71,7 @@ export default function RootNavigator() {
           gestureEnabled: true,
         }}
       >
+        {/* Splash shows every cold start for ~3s, then routes based on user state */}
         <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }} />
 
         {/* Marketing / Welcome slides */}
