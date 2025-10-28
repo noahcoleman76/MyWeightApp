@@ -1,6 +1,6 @@
+import CurrentWeight from "@/src/components/WeightInput";
 import { useNavigation } from "@react-navigation/native";
 import React from "react";
-import NumericInput from "../../components/NumericInput";
 import { lbToKg } from "../../lib/units";
 import { useGoalStore } from "../../state/goalStore";
 
@@ -9,9 +9,9 @@ export default function GoalWeight() {
   const nav = useNavigation<any>();
 
   return (
-    <NumericInput
+    <CurrentWeight
       title="Goal weight"
-      placeholder="Pounds (e.g. 170)"
+      placeholder="Pounds"
       onConfirm={(lb) => {
         setGoalWeightKg(lbToKg(lb));
         nav.navigate("TargetDate");

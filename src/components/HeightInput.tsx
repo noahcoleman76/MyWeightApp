@@ -1,5 +1,5 @@
 import { useTheme } from "@react-navigation/native";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
     Platform,
     Pressable,
@@ -12,26 +12,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 type Props = {
   title: string;
-  placeholder?: string;
   suffix?: string;
-  onConfirm: (n: number) => void;
+  /** Returns total height in inches (e.g., 6'4" -> 76) */
+  onConfirm: (totalInches: number) => void;
   cta?: string;
-  accentColor?: string;      // optional override; defaults to theme primary
-  minYear?: number;          // optional; defaults to 1900
-  maxYear?: number;          // optional; defaults to current year
-  showHelperText?: boolean;  // optional helper error text; default true
+  accentColor?: string;
+  showHelperText?: boolean;
+  minFeet?: number; // defaults 1
+  maxFeet?: number; // defaults 8
 };
 
-export default function NumericInput({
+export default function HeightInput({
   title,
-  placeholder,
   suffix,
   onConfirm,
   cta = "Continue",
   accentColor,
-  minYear,
-  maxYear,
   showHelperText = true,
+  minFeet = 1,
+  maxFeet = 8,
 }: Props) {
   const { colors } = useTheme();
   const ACCENT = accentColor ?? colors?.primary ?? "#16a34a";
@@ -40,77 +39,141 @@ export default function NumericInput({
   const MUTED = colors?.border ?? "#e5e7eb";
   const PLACEHOLDER = "#9ca3af";
 
-  const CURRENT_YEAR = new Date().getFullYear();
-  const MIN = minYear ?? 1900;
-  const MAX = maxYear ?? CURRENT_YEAR;
+  const [feetStr, setFeetStr] = useState("");
+  const [inchesStr, setInchesStr] = useState("");
+  const [feetFocused, setFeetFocused] = useState(false);
+  const [inchesFocused, setInchesFocused] = useState(false);
 
-  const [val, setVal] = useState("");
-  const [focused, setFocused] = useState(false);
+  const inchesRef = useRef<TextInput>(null);
 
-  // Digits only, hard-limit to 4 chars (YYYY)
-  const handleChange = (t: string) => {
-    const digitsOnly = t.replace(/\D/g, "").slice(0, 4);
-    setVal(digitsOnly);
+  const handleFeetChange = (t: string) => {
+    const d = t.replace(/\D/g, "").slice(0, 2);
+    setFeetStr(d);
+  };
+  const handleInchesChange = (t: string) => {
+    const d = t.replace(/\D/g, "").slice(0, 2);
+    setInchesStr(d);
   };
 
-  const parsed = useMemo(() => {
-    const n = Number(val);
-    return Number.isFinite(n) && val.trim() !== "" ? n : NaN;
-  }, [val]);
+  const feet = useMemo(() => {
+    const n = Number(feetStr);
+    return feetStr.trim() !== "" && Number.isFinite(n) ? n : NaN;
+  }, [feetStr]);
 
-  const isFourDigits = val.length === 4;
-  const inRange = isFourDigits && !Number.isNaN(parsed) && parsed >= MIN && parsed <= MAX;
-  const isValid = isFourDigits && inRange;
+  const inches = useMemo(() => {
+    const n = Number(inchesStr);
+    return inchesStr.trim() !== "" && Number.isFinite(n) ? n : NaN;
+  }, [inchesStr]);
 
-  const showRangeHint = showHelperText && isFourDigits && !inRange;
+  // Valid only if numbers and within ranges
+  const feetValid = !Number.isNaN(feet) && feet >= minFeet && feet <= maxFeet;
+  const inchesValid = !Number.isNaN(inches) && inches >= 1 && inches <= 12;
+
+  // Show error ONLY when both fields have values AND one/both are invalid
+  const bothProvided = feetStr !== "" && inchesStr !== "";
+  const isValid = bothProvided && feetValid && inchesValid;
+
+  const totalInches = isValid ? feet * 12 + inches : NaN;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
       <View style={styles.container}>
         <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 
-        <View
-          style={[
-            styles.inputCard,
-            {
-              borderColor: focused ? ACCENT : isValid ? ACCENT : MUTED,
-              shadowOpacity: focused ? 0.2 : 0.1,
-            },
-          ]}
-        >
-          <TextInput
-            value={val}
-            onChangeText={handleChange}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"} // native keypad
-            autoCorrect={false}
-            autoCapitalize="none"
-            spellCheck={false}
-            blurOnSubmit={false} // don't treat "Done" like submit
-            selectionColor={ACCENT}
-            textAlign="center"
-            maxLength={4}
-            placeholder={placeholder}
-            placeholderTextColor={PLACEHOLDER}
-            style={[styles.inputText, { color: TEXT }]}
-            // Intentionally omit inputMode/returnKeyType/onSubmitEditing to avoid the accessory bar behavior
-          />
+        {/* Inputs row */}
+        <View style={styles.row}>
+          {/* Feet */}
+          <View
+            style={[
+              styles.inputCard,
+              {
+                borderColor: feetFocused
+                  ? ACCENT
+                  : !bothProvided || feetValid || feetStr === ""
+                  ? MUTED
+                  : "#ef4444",
+                shadowOpacity: feetFocused ? 0.2 : 0.1,
+              },
+            ]}
+          >
+            <TextInput
+              value={feetStr}
+              onChangeText={handleFeetChange}
+              onFocus={() => setFeetFocused(true)}
+              onBlur={() => setFeetFocused(false)}
+              keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
+              autoCorrect={false}
+              autoCapitalize="none"
+              spellCheck={false}
+              selectionColor={ACCENT}
+              textAlign="center"
+              maxLength={2}
+              placeholder="ft"
+              placeholderTextColor={PLACEHOLDER}
+              style={[styles.inputText, { color: TEXT }]}
+              returnKeyType="next"
+              onSubmitEditing={() => inchesRef.current?.focus()}
+            />
+          </View>
+
+          <Text style={[styles.mult, { color: PLACEHOLDER }]}>ft</Text>
+
+          {/* Inches */}
+          <View
+            style={[
+              styles.inputCard,
+              {
+                borderColor: inchesFocused
+                  ? ACCENT
+                  : !bothProvided || inchesValid || inchesStr === ""
+                  ? MUTED
+                  : "#ef4444",
+                shadowOpacity: inchesFocused ? 0.2 : 0.1,
+              },
+            ]}
+          >
+            <TextInput
+              ref={inchesRef}
+              value={inchesStr}
+              onChangeText={handleInchesChange}
+              onFocus={() => setInchesFocused(true)}
+              onBlur={() => setInchesFocused(false)}
+              keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
+              autoCorrect={false}
+              autoCapitalize="none"
+              spellCheck={false}
+              selectionColor={ACCENT}
+              textAlign="center"
+              maxLength={2}
+              placeholder="in"
+              placeholderTextColor={PLACEHOLDER}
+              style={[styles.inputText, { color: TEXT }]}
+              returnKeyType="done"
+            />
+          </View>
+
+          <Text style={[styles.mult, { color: PLACEHOLDER }]}>in</Text>
         </View>
 
         {suffix ? (
           <Text style={[styles.suffix, { color: PLACEHOLDER }]}>{suffix}</Text>
         ) : null}
 
-        {showRangeHint ? (
+        {/* Helper / validation – only after both provided */}
+        {showHelperText && bothProvided && (!feetValid || !inchesValid) ? (
           <Text style={[styles.helper, { color: "#ef4444" }]}>
-            Enter a year between {MIN} and {MAX}.
+            {!feetValid && !inchesValid
+              ? `Enter feet between ${minFeet}–${maxFeet} and inches between 1–12.`
+              : !feetValid
+              ? `Enter feet between ${minFeet}–${maxFeet}.`
+              : `Enter inches between 1–12.`}
           </Text>
         ) : null}
 
+        {/* CTA */}
         <Pressable
           disabled={!isValid}
-          onPress={() => onConfirm(parsed)}
+          onPress={() => onConfirm(totalInches)}
           style={({ pressed }) => [
             styles.cta,
             {
@@ -129,7 +192,7 @@ export default function NumericInput({
   );
 }
 
-const CARD_WIDTH = 280;
+const CARD_WIDTH = 120;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
@@ -145,6 +208,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     letterSpacing: 0.2,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   inputCard: {
     width: CARD_WIDTH,
@@ -163,9 +231,13 @@ const styles = StyleSheet.create({
     }),
   },
   inputText: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: "800",
     paddingVertical: 8,
+  },
+  mult: {
+    fontSize: 16,
+    marginHorizontal: 4,
   },
   suffix: {
     fontSize: 14,
@@ -182,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 28,
-    minWidth: 220,
+    minWidth: 240,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -1,6 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import React from "react";
-import NumericInput from "../../components/NumericInput";
+import CurrentWeightInput from "../../components/WeightInput";
 import { lbToKg } from "../../lib/units";
 import { useGoalStore } from "../../state/goalStore";
 import { useProfileStore } from "../../state/profileStore";
@@ -11,9 +11,9 @@ export default function CurrentWeight() {
   const mode = useGoalStore((s) => s.mode);
 
   return (
-    <NumericInput
+    <CurrentWeightInput
       title="Current weight"
-      placeholder="Pounds (e.g. 200)"
+      placeholder="Pounds"
       onConfirm={(lb) => {
         setCurrentWeightKg(lbToKg(lb));
         if (mode === "maintain") nav.navigate("OnboardingHowItWorks");
