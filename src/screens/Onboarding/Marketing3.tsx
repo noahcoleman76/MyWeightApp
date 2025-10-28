@@ -6,9 +6,8 @@ export default function Marketing3() {
     <OnboardSlide
       image={require("../../../assets/images/onboarding/dashboard3.png")}
       title="Track and manage all your progress"
-      subtitle="Fast logging, clear trends, fewer distractions."
       cta="Continue"
-      nextRoute="ChooseGender"
+      nextRoute="First"
       showLoginLink
     />
   );

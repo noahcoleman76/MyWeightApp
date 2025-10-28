@@ -1,23 +1,151 @@
-import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "@react-navigation/native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React from "react";
-import { Button, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { RootStackParamList } from "../../navigation/RootNavigator";
 
-export default function Encouragement() {
-  const nav = useNavigation<any>();
+type Props = NativeStackScreenProps<RootStackParamList, "OnboardingHowItWorks">;
 
-  const proceed = () => {
-    nav.replace("Paywall");
-  };
+export default function Encouragement({ navigation }: Props) {
+  const { colors } = useTheme();
 
+  // Match DateInput palette tokens
+  const ACCENT = colors?.primary ?? "#16a34a";
+  const TEXT = colors?.text ?? "#111827";
+  const BG = colors?.background ?? "#FFFFFF";
+  const MUTED = colors?.border ?? "#e5e7eb";
+  const SUBTLE = "#6b7280";
+
+  const onNext = () => navigation.navigate("Paywall");
+  const onLearnMore = () => navigation.navigate("OnboardingLearnMore");
+
+  // You have great potential to crush your goal.
+  // We’ll guide your daily targets and help you stay consistent.
   return (
-    <View className="flex-1 items-center justify-center px-6 bg-white">
-      <Text className="text-2xl font-semibold text-center">You have great potential to crush your goal.</Text>
-      <Text className="mt-3 text-center text-gray-600">
-        We’ll guide your daily targets and help you stay consistent.
-      </Text>
-      <View className="mt-6 w-56">
-        <Button title="Continue" onPress={proceed} />
-      </View>
-    </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      <ScrollView
+        contentContainerStyle={[styles.wrap]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title */}
+        <Text style={[styles.title, { color: TEXT }]}>You have great potential to crush your goal.</Text>
+
+        {/* Helper blurb (matches DateInput tone/spacing) */}
+        <Text style={[styles.blurb, { color: SUBTLE }]}>
+          We’ll guide your daily targets and help you stay consistent.
+        </Text>
+
+        
+
+        {/* Primary CTA — styled like DateInput.cta */}
+        <Pressable
+          onPress={onNext}
+          style={({ pressed }) => [
+            styles.cta,
+            {
+              backgroundColor: ACCENT,
+              borderColor: ACCENT,
+              opacity: pressed ? 0.9 : 1,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Next"
+        >
+          <Text style={styles.ctaText}>Let's do this</Text>
+        </Pressable>
+
+        {/* Secondary link (optional, mirrors DateInput’s subtle actions style) */}
+        <Pressable onPress={onLearnMore} style={styles.secondary}>
+          <Text style={[styles.secondaryText, { color: SUBTLE }]}>Learn more</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  wrap: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16, // mirrors DateInput vertical rhythm
+    paddingBottom: 24,
+    paddingTop: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  blurb: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 360,
+  },
+  inputBlock: {
+    width: 280, // same constrained width used in DateInput.inputBlock
+    marginTop: 8,
+    alignItems: "stretch",
+    gap: 12,
+  },
+  bulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  bulletDot: {
+    fontSize: 18,
+    lineHeight: 22,
+    marginTop: 1,
+    width: 16,
+    textAlign: "center",
+    color: "#111827",
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  tagline: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 4,
+    maxWidth: 360,
+  },
+
+  // CTA (mirrors DateInput.cta)
+  cta: {
+    marginTop: 16,
+    width: 260,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 0, // visually consistent with DateInput's filled CTA
+  },
+  ctaText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 16,
+    textTransform: "none",
+  },
+
+  // Secondary subtle link (akin to "Choose date later" styling)
+  secondary: {
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});

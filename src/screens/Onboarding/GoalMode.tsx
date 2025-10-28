@@ -16,7 +16,7 @@ export default function GoalMode() {
       ]}
       onConfirm={(v) => {
         setMode(v as any);
-        nav.navigate("Height");
+        nav.navigate("ChooseGender");
       }}
     />
   );

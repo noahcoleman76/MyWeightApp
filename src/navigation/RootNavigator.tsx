@@ -13,6 +13,7 @@ import Splash from "../screens/Onboarding/Splash";
 import BirthYear from "../screens/Onboarding/BirthYear";
 import ChooseGender from "../screens/Onboarding/ChooseGender";
 import CurrentWeight from "../screens/Onboarding/CurrentWeight";
+import First from "../screens/Onboarding/First";
 import GoalMode from "../screens/Onboarding/GoalMode";
 import GoalWeight from "../screens/Onboarding/GoalWeight";
 import Height from "../screens/Onboarding/Height";
@@ -51,7 +52,8 @@ export type RootStackParamList = {
   Concerns: undefined;
   Encouragement: undefined;
   Paywall: undefined;
-  Tabs: undefined;        // bottom tabs (Dashboard, Goals, Log, Account)
+  Tabs: undefined;
+  First: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -78,11 +80,12 @@ export default function RootNavigator() {
         <Stack.Screen name="Marketing1" component={Marketing1} options={{title: "Welcome"}} />
         <Stack.Screen name="Marketing2" component={Marketing2} options={{title: "Welcome"}} />
         <Stack.Screen name="Marketing3" component={Marketing3} options={{title: "Welcome"}} />
+        <Stack.Screen name="First" component={First} options={{ title: "Your Details" }} />
 
         {/* Data capture */}
+        <Stack.Screen name="GoalMode" component={GoalMode} options={{ title: "Your Goal" }} />
         <Stack.Screen name="ChooseGender" component={ChooseGender} options={{ title: "Your Details" }} />
         <Stack.Screen name="BirthYear" component={BirthYear} options={{ title: "Your Details" }} />
-        <Stack.Screen name="GoalMode" component={GoalMode} options={{ title: "Your Goal" }} />
         <Stack.Screen name="Height" component={Height} options={{ title: "Your Details" }} />
         <Stack.Screen name="CurrentWeight" component={CurrentWeight} options={{ title: "Your Details" }} />
         <Stack.Screen name="GoalWeight" component={GoalWeight} options={{ title: "Your Goal" }} />
@@ -95,7 +98,7 @@ export default function RootNavigator() {
         {/* Motivation */}
         <Stack.Screen name="Motivation" component={Motivation} options={{ title: "Your Why" }} />
         <Stack.Screen name="Concerns" component={Concerns} options={{ title: "Your Concerns" }} />
-        <Stack.Screen name="Encouragement" component={Encouragement} options={{ headerShown: false }} />
+        <Stack.Screen name="Encouragement" component={Encouragement} options={{ headerShown: true }} />
 
         {/* Paywall and App */}
         <Stack.Screen name="Paywall" component={Paywall} options={{ title: "MyWeight Premium" }} />
