@@ -1,12 +1,12 @@
 import { useTheme } from "@react-navigation/native";
 import React, { useMemo, useState } from "react";
 import {
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 

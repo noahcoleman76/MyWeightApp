@@ -1,28 +1,155 @@
+import { useTheme } from "@react-navigation/native";
 import React, { useState } from "react";
-import { Button, Text, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context"; // ✅ use this one
+
 
 type Option = { label: string; value: string };
-type Props = { title: string; options: Option[]; onConfirm: (value: string) => void; cta?: string; };
 
-export default function SingleChoice({ title, options, onConfirm, cta = "Continue" }: Props) {
-  const [value, setValue] = useState<string | null>(null);
+type Props = {
+  title: string;
+  options: Option[];
+  onConfirm: (value: string) => void;
+  accentColor?: string; // optional, falls back to theme primary
+  confirmLabel?: string;
+};
+
+export default function SingleChoice({
+  title,
+  options,
+  onConfirm,
+  accentColor,
+  confirmLabel = "Continue",
+}: Props) {
+  const { colors } = useTheme();
+  const ACCENT = accentColor ?? colors?.primary ?? "#16a34a";
+  const TEXT = colors?.text ?? "#111827";
+  const BG = colors?.background ?? "#FFFFFF";
+  const MUTED = colors?.border ?? "#e5e7eb";
+
+  const [selected, setSelected] = useState<string | null>(null);
+
   return (
-    <View className="flex-1 items-center justify-center px-6 bg-white">
-      <Text className="text-xl font-semibold text-center">{title}</Text>
-      <View className="mt-5 w-full">
-        {options.map((opt) => (
-          <TouchableOpacity
-            key={opt.value}
-            className={`px-4 py-3 rounded-xl border mb-3 ${value === opt.value ? "bg-black" : "bg-white"}`}
-            onPress={() => setValue(opt.value)}
-          >
-            <Text className={`${value === opt.value ? "text-white" : "text-black"} text-center`}>{opt.label}</Text>
-          </TouchableOpacity>
-        ))}
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]}>
+      <View style={styles.container}>
+        <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
+
+        <View style={styles.row}>
+          {options.map((opt) => {
+            const isSelected = selected === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setSelected(opt.value)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                style={({ pressed }) => [
+                  styles.card,
+                  {
+                    backgroundColor: isSelected ? ACCENT : "#F9FAFB",
+                    borderColor: isSelected ? ACCENT : MUTED,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                    shadowOpacity: isSelected ? 0.25 : 0.12,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cardLabel,
+                    { color: isSelected ? "#FFFFFF" : TEXT },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Pressable
+          disabled={!selected}
+          onPress={() => selected && onConfirm(selected)}
+          style={({ pressed }) => [
+            styles.cta,
+            {
+              backgroundColor: selected ? ACCENT : "#E5E7EB",
+              transform: [{ translateY: pressed ? 1 : 0 }],
+              opacity: selected ? 1 : 0.6,
+            },
+          ]}
+        >
+          <Text style={styles.ctaText}>{confirmLabel}</Text>
+        </Pressable>
       </View>
-      <View className="mt-4 w-56">
-        <Button title={cta} onPress={() => value && onConfirm(value)} disabled={!value} />
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
+
+const CARD_SIDE = 148;
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 28,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.2,
+  },
+  row: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  card: {
+    width: CARD_SIDE * 1.1,
+    height: CARD_SIDE * 1.1,
+    borderRadius: 20,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowRadius: 16,
+      },
+      android: { elevation: 6 },
+    }),
+  },
+  cardLabel: {
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  cta: {
+    marginTop: 8,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    minWidth: 220,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+});
