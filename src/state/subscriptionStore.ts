@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { getItem, removeItem, setItem } from "../lib/mmkv";
 
 type SubscriptionState = {
+  reset: any;
   isEntitled: boolean;
   productId?: string;
   lastPurchaseDate?: string;
@@ -17,6 +18,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       grantDevEntitlement: () =>
         set({ isEntitled: true, lastPurchaseDate: new Date().toISOString(), productId: "myweight_monthly_499" }),
       revokeEntitlement: () => set({ isEntitled: false, productId: undefined, lastPurchaseDate: undefined }),
+      reset: () => set({ isEntitled: false, productId: undefined, lastPurchaseDate: undefined }),
     }),
     {
       name: "subscriptionStore",

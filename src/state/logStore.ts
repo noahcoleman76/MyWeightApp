@@ -13,6 +13,7 @@ export interface LogEntry {
 }
 
 type LogStore = {
+  reset: any;
   logs: LogEntry[];
   add: (e: Omit<LogEntry, "id">) => void;
   update: (id: string, patch: Partial<LogEntry>) => void;
@@ -55,6 +56,7 @@ export const useLogStore = create<LogStore>()(
         }
         return sCount;
       },
+      reset: () => set({ logs: [] }),
     }),
     {
       name: "logStore",

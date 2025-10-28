@@ -2,27 +2,21 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { getItem, removeItem, setItem } from "../lib/mmkv";
 
-type AppStore = {
+type AppState = {
   isLoggedIn: boolean;
   onboardingDone: boolean;
   setLoggedIn: (v: boolean) => void;
-  completeOnboarding: () => void;
-  resetOnboarding: () => void;
+  setOnboardingDone: (v: boolean) => void;
 };
 
-export const useAppStore = create<AppStore>()(
+export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       isLoggedIn: false,
       onboardingDone: false,
       setLoggedIn: (v) => set({ isLoggedIn: v }),
-      completeOnboarding: () => set({ onboardingDone: true }),
-      resetOnboarding: () => set({ onboardingDone: false }),
+      setOnboardingDone: (v) => set({ onboardingDone: v }),
     }),
-    {
-      name: "appStore",
-      storage: createJSONStorage(() => ({ getItem, setItem, removeItem })),
-      version: 2,
-    }
+    { name: "appStore", storage: createJSONStorage(() => ({ getItem, setItem, removeItem })) }
   )
 );

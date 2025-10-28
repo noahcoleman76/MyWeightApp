@@ -10,54 +10,63 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuthStore } from "../../state/authStore";
+import { isOnboardingComplete } from "../../lib/onboarding";
+import { useAppStore } from "../../state/appStore";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
+import { useSubscriptionStore } from "../../state/subscriptionStore";
 
-const SPLASH_MS = 4000; // 4 seconds splash screen
+const SPLASH_MS = 3000;
+const RADIUS = 32;
+const LOGO_SIZE = 240;
 
 export default function Splash() {
   const nav = useNavigation<any>();
-  const { isLoggedIn } = useAuthStore();
-  const { profile } = useProfileStore();
-  const { goalWeightKg } = useGoalStore();
-  const { logs } = useLogStore();
+  const { colors } = useTheme();
   const scheme = useColorScheme();
   const isDark = scheme === "dark";
-  const { colors } = useTheme();
 
-  const hasTouchedProfile =
-    (profile.name && profile.name !== "You") ||
-    (profile.motivation && profile.motivation.length > 0) ||
-    (profile.concerns && profile.concerns.length > 0);
+  // Stores
+  const isLoggedIn   = useAppStore((s) => s.isLoggedIn);
+  const isEntitled   = useSubscriptionStore((s) => s.isEntitled);
+  const profile      = useProfileStore((s) => s.profile);
+  const mode         = useGoalStore((s) => s.mode);
+  const goalWeightKg = useGoalStore((s) => s.goalWeightKg);
+  const logsCount    = useLogStore((s) => s.logs.length);
 
-  const hasOnboardingData = Boolean(goalWeightKg || logs.length > 0 || hasTouchedProfile);
+  const complete = isOnboardingComplete({ profile, mode, goalWeightKg });
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (isLoggedIn) {
+      // RULES:
+      // - If logged in and entitled -> Tabs
+      // - If logged in and NOT entitled -> Paywall only if onboarding complete; else Marketing1
+      // - If NOT logged in -> Paywall only if onboarding complete; else Marketing1
+      if (isLoggedIn && isEntitled) {
         nav.reset({ index: 0, routes: [{ name: "Tabs", params: { screen: "Dashboard" } }] });
-      } else if (hasOnboardingData) {
+      } else if (complete) {
         nav.reset({ index: 0, routes: [{ name: "Paywall" }] });
       } else {
         nav.reset({ index: 0, routes: [{ name: "Marketing1" }] });
       }
     }, SPLASH_MS);
     return () => clearTimeout(t);
-  }, [isLoggedIn, hasOnboardingData, nav]);
+  }, [isLoggedIn, isEntitled, complete, nav, logsCount]);
 
+  // Theming
   const bg = { backgroundColor: colors.background };
   const textPrimary = { color: colors.text };
-  const textSecondary = { color: isDark ? "#9CA3AF" : "#6B7280" }; // softer secondary
+  const textSecondary = { color: isDark ? "#9CA3AF" : "#6B7280" };
   const spinnerColor = colors.primary;
 
   const icon = require("../../../assets/images/icon.png");
 
   return (
     <SafeAreaView style={[styles.safeArea, bg]} edges={["top", "bottom"]}>
-      {/* Centered content */}
+      {/* Centered block */}
       <View style={styles.centerBlock}>
+        {/* Shadow wrapper */}
         <View style={[styles.logoShadow, isDark && styles.logoShadowDark]}>
           <View style={styles.logoClip}>
             <Image
@@ -88,16 +97,11 @@ export default function Splash() {
   );
 }
 
-const RADIUS = 32;
-const LOGO_SIZE = 240;
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     paddingHorizontal: 24,
   },
-
-  // Centered block (kept separate so footer can pin to bottom)
   centerBlock: {
     flex: 1,
     alignItems: "center",
@@ -107,12 +111,12 @@ const styles = StyleSheet.create({
   // --- Logo + shadow ---
   logoShadow: {
     borderRadius: RADIUS + 6,
-    // iOS shadow
+    // iOS shadow:
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
-    // Android shadow
+    // Android shadow:
     elevation: 10,
     backgroundColor: "transparent",
     marginBottom: 20,
@@ -131,14 +135,14 @@ const styles = StyleSheet.create({
     height: LOGO_SIZE,
     borderRadius: RADIUS,
     overflow: "hidden",
-    backgroundColor: "#5eada8", // your accent
+    backgroundColor: "#5eada8", // accent
   },
   logo: {
     width: "100%",
     height: "100%",
   },
 
-  // Typography (readable system faces)
+  // --- Typography (readable system faces) ---
   title: {
     fontFamily: Platform.select({
       ios: "System",
@@ -167,7 +171,7 @@ const styles = StyleSheet.create({
   },
   spinner: { marginTop: 22 },
 
-  // Footer
+  // --- Footer ---
   footer: {
     alignItems: "center",
     paddingVertical: 12,

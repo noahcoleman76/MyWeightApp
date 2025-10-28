@@ -1,12 +1,14 @@
 import { useTheme } from "@react-navigation/native";
 import React, { useMemo, useRef, useState } from "react";
 import {
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -65,130 +67,133 @@ export default function HeightInput({
     return inchesStr.trim() !== "" && Number.isFinite(n) ? n : NaN;
   }, [inchesStr]);
 
-  // Valid only if numbers and within ranges
   const feetValid = !Number.isNaN(feet) && feet >= minFeet && feet <= maxFeet;
   const inchesValid = !Number.isNaN(inches) && inches >= 1 && inches <= 12;
 
-  // Show error ONLY when both fields have values AND one/both are invalid
   const bothProvided = feetStr !== "" && inchesStr !== "";
   const isValid = bothProvided && feetValid && inchesValid;
 
   const totalInches = isValid ? feet * 12 + inches : NaN;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
-      <View style={styles.container}>
-        <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
+        <View style={styles.container}>
+          <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 
-        {/* Inputs row */}
-        <View style={styles.row}>
-          {/* Feet */}
-          <View
-            style={[
-              styles.inputCard,
-              {
-                borderColor: feetFocused
-                  ? ACCENT
-                  : !bothProvided || feetValid || feetStr === ""
-                  ? MUTED
-                  : "#ef4444",
-                shadowOpacity: feetFocused ? 0.2 : 0.1,
-              },
-            ]}
-          >
-            <TextInput
-              value={feetStr}
-              onChangeText={handleFeetChange}
-              onFocus={() => setFeetFocused(true)}
-              onBlur={() => setFeetFocused(false)}
-              keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              selectionColor={ACCENT}
-              textAlign="center"
-              maxLength={2}
-              placeholder="ft"
-              placeholderTextColor={PLACEHOLDER}
-              style={[styles.inputText, { color: TEXT }]}
-              returnKeyType="next"
-              onSubmitEditing={() => inchesRef.current?.focus()}
-            />
+          {/* Inputs row */}
+          <View style={styles.row}>
+            {/* Feet */}
+            <View
+              style={[
+                styles.inputCard,
+                {
+                  borderColor: feetFocused
+                    ? ACCENT
+                    : !bothProvided || feetValid || feetStr === ""
+                    ? MUTED
+                    : "#ef4444",
+                  shadowOpacity: feetFocused ? 0.2 : 0.1,
+                },
+              ]}
+            >
+              <TextInput
+                value={feetStr}
+                onChangeText={handleFeetChange}
+                onFocus={() => setFeetFocused(true)}
+                onBlur={() => setFeetFocused(false)}
+                keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                selectionColor={ACCENT}
+                textAlign="center"
+                maxLength={2}
+                placeholder="ft"
+                placeholderTextColor={PLACEHOLDER}
+                style={[styles.inputText, { color: TEXT }]}
+                returnKeyType="next"
+                onSubmitEditing={() => inchesRef.current?.focus()}
+              />
+            </View>
+
+            <Text style={[styles.mult, { color: PLACEHOLDER }]}>ft</Text>
+
+            {/* Inches */}
+            <View
+              style={[
+                styles.inputCard,
+                {
+                  borderColor: inchesFocused
+                    ? ACCENT
+                    : !bothProvided || inchesValid || inchesStr === ""
+                    ? MUTED
+                    : "#ef4444",
+                  shadowOpacity: inchesFocused ? 0.2 : 0.1,
+                },
+              ]}
+            >
+              <TextInput
+                ref={inchesRef}
+                value={inchesStr}
+                onChangeText={handleInchesChange}
+                onFocus={() => setInchesFocused(true)}
+                onBlur={() => setInchesFocused(false)}
+                keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                selectionColor={ACCENT}
+                textAlign="center"
+                maxLength={2}
+                placeholder="in"
+                placeholderTextColor={PLACEHOLDER}
+                style={[styles.inputText, { color: TEXT }]}
+                returnKeyType="done"
+              />
+            </View>
+
+            <Text style={[styles.mult, { color: PLACEHOLDER }]}>in</Text>
           </View>
 
-          <Text style={[styles.mult, { color: PLACEHOLDER }]}>ft</Text>
+          {suffix ? (
+            <Text style={[styles.suffix, { color: PLACEHOLDER }]}>{suffix}</Text>
+          ) : null}
 
-          {/* Inches */}
-          <View
-            style={[
-              styles.inputCard,
+          {/* Helper / validation – only after both provided */}
+          {showHelperText && bothProvided && (!feetValid || !inchesValid) ? (
+            <Text style={[styles.helper, { color: "#ef4444" }]}>
+              {!feetValid && !inchesValid
+                ? `Enter feet between ${minFeet}–${maxFeet} and inches between 1–12.`
+                : !feetValid
+                ? `Enter feet between ${minFeet}–${maxFeet}.`
+                : `Enter inches between 1–12.`}
+            </Text>
+          ) : null}
+
+          {/* CTA */}
+          <Pressable
+            disabled={!isValid}
+            onPress={() => {
+              Keyboard.dismiss();
+              onConfirm(totalInches);
+            }}
+            style={({ pressed }) => [
+              styles.cta,
               {
-                borderColor: inchesFocused
-                  ? ACCENT
-                  : !bothProvided || inchesValid || inchesStr === ""
-                  ? MUTED
-                  : "#ef4444",
-                shadowOpacity: inchesFocused ? 0.2 : 0.1,
+                backgroundColor: isValid ? ACCENT : "#E5E7EB",
+                transform: [{ translateY: pressed && isValid ? 1 : 0 }],
+                opacity: isValid ? 1 : 0.7,
               },
             ]}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !isValid }}
           >
-            <TextInput
-              ref={inchesRef}
-              value={inchesStr}
-              onChangeText={handleInchesChange}
-              onFocus={() => setInchesFocused(true)}
-              onBlur={() => setInchesFocused(false)}
-              keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              selectionColor={ACCENT}
-              textAlign="center"
-              maxLength={2}
-              placeholder="in"
-              placeholderTextColor={PLACEHOLDER}
-              style={[styles.inputText, { color: TEXT }]}
-              returnKeyType="done"
-            />
-          </View>
-
-          <Text style={[styles.mult, { color: PLACEHOLDER }]}>in</Text>
+            <Text style={styles.ctaText}>{cta}</Text>
+          </Pressable>
         </View>
-
-        {suffix ? (
-          <Text style={[styles.suffix, { color: PLACEHOLDER }]}>{suffix}</Text>
-        ) : null}
-
-        {/* Helper / validation – only after both provided */}
-        {showHelperText && bothProvided && (!feetValid || !inchesValid) ? (
-          <Text style={[styles.helper, { color: "#ef4444" }]}>
-            {!feetValid && !inchesValid
-              ? `Enter feet between ${minFeet}–${maxFeet} and inches between 1–12.`
-              : !feetValid
-              ? `Enter feet between ${minFeet}–${maxFeet}.`
-              : `Enter inches between 1–12.`}
-          </Text>
-        ) : null}
-
-        {/* CTA */}
-        <Pressable
-          disabled={!isValid}
-          onPress={() => onConfirm(totalInches)}
-          style={({ pressed }) => [
-            styles.cta,
-            {
-              backgroundColor: isValid ? ACCENT : "#E5E7EB",
-              transform: [{ translateY: pressed && isValid ? 1 : 0 }],
-              opacity: isValid ? 1 : 0.7,
-            },
-          ]}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !isValid }}
-        >
-          <Text style={styles.ctaText}>{cta}</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 

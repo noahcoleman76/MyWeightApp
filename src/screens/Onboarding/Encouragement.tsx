@@ -1,14 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
 import React from "react";
 import { Button, Text, View } from "react-native";
-import { useAppStore } from "../../state/appStore";
 
 export default function Encouragement() {
   const nav = useNavigation<any>();
-  const complete = useAppStore((s) => s.completeOnboarding);
 
   const proceed = () => {
-    complete();
     nav.replace("Paywall");
   };
 
