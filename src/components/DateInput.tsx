@@ -97,7 +97,7 @@ export default function DateInput({
             style={[styles.display, { borderColor: MUTED, backgroundColor: BG }]}
           >
             <Text style={[styles.displayText, { color: hasInput ? TEXT : SUBTLE }]}>
-              {hasInput ? formattedPretty : "select date"}
+              {hasInput ? formattedPretty : "select date (optional)"}
             </Text>
           </Pressable>
         </View>

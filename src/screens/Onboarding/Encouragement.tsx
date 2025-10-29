@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 
-type Props = NativeStackScreenProps<RootStackParamList, "OnboardingHowItWorks">;
+type Props = NativeStackScreenProps<RootStackParamList, "Encouragement">;
 
 export default function Encouragement({ navigation }: Props) {
   const { colors } = useTheme();

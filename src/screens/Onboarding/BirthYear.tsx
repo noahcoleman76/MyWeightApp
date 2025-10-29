@@ -27,7 +27,7 @@ export default function BirthYear() {
       <View style={{ flex: 1 }}>
         <NumericInput
           title="What year were you born?"
-          placeholder="e.g. 1996"
+          placeholder="1996"
           suffix="Year"
           onConfirm={handleConfirm}
           accentColor={ACCENT}

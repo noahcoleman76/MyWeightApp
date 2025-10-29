@@ -12,6 +12,7 @@ export function isOnboardingComplete(opts: {
   const hasGender = profile.gender === "male" || profile.gender === "female";
   const hasAge = Number.isFinite(profile.age) && profile.age > 0;
   const hasHeight = Number.isFinite(profile.height) && profile.height > 0; // cm
+  
   const hasStartOrCurrent =
     Number.isFinite(profile.startingWeightKg) && (profile.startingWeightKg as number) > 0
     || Number.isFinite(profile.currentWeight) && profile.currentWeight > 0;
