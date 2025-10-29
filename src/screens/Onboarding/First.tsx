@@ -13,7 +13,7 @@ export default function First() {
   const BG = colors?.background ?? "#FFFFFF";
   const SUBTLE = "#6b7280";
 
-  const proceed = () => nav.replace("GoalMode");
+  const proceed = () => nav.navigate("Name");
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>

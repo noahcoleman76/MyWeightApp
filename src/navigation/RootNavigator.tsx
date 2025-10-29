@@ -17,6 +17,7 @@ import First from "../screens/Onboarding/First";
 import GoalMode from "../screens/Onboarding/GoalMode";
 import GoalWeight from "../screens/Onboarding/GoalWeight";
 import Height from "../screens/Onboarding/Height";
+import Name from "../screens/Onboarding/Name";
 import TargetDate from "../screens/Onboarding/TargetDate";
 
 // Info / framing
@@ -39,6 +40,7 @@ export type RootStackParamList = {
   Marketing1: undefined;  // “Welcome”
   Marketing2: undefined;
   Marketing3: undefined;
+  Name: undefined;
   ChooseGender: undefined;
   BirthYear: undefined;
   GoalMode: undefined;
@@ -83,6 +85,7 @@ export default function RootNavigator() {
         <Stack.Screen name="First" component={First} options={{ title: "Your Details" }} />
 
         {/* Data capture */}
+        <Stack.Screen name="Name" component={Name} options={{ title: "Your Name" }} />
         <Stack.Screen name="GoalMode" component={GoalMode} options={{ title: "Your Goal" }} />
         <Stack.Screen name="ChooseGender" component={ChooseGender} options={{ title: "Your Details" }} />
         <Stack.Screen name="BirthYear" component={BirthYear} options={{ title: "Your Details" }} />
