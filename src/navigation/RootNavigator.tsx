@@ -1,7 +1,9 @@
 // src/navigation/RootNavigator.tsx
+import { Ionicons } from "@expo/vector-icons"; // npm i @expo/vector-icons
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
+import { Text, TouchableOpacity } from "react-native";
 
 // Onboarding / marketing
 import Marketing1 from "../screens/Onboarding/Marketing1";
@@ -65,23 +67,42 @@ export default function RootNavigator() {
     <NavigationContainer theme={AppTheme}>
       <Stack.Navigator
         initialRouteName="Splash"
-        screenOptions={{
-          headerTitleAlign: "center",
+        screenOptions={({ navigation, route }) => ({
+          headerTitle: "",                  // no header title on any screen
           headerShadowVisible: false,
           headerStyle: { backgroundColor: AppTheme.colors.card },
           headerTitleStyle: { fontWeight: "600", fontSize: 18 },
           contentStyle: { backgroundColor: AppTheme.colors.background },
-          animation: "fade_from_bottom",
+          animation: "slide_from_right",
           gestureEnabled: true,
-        }}
+
+          // hide default back chevron and previous-title
+          headerBackVisible: false,
+
+          // our custom "Back" (only when you CAN go back)
+          headerLeft: () => {
+            const canGoBack = navigation.canGoBack?.() ?? false;
+            if (!canGoBack) return null;
+            return (
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="chevron-back" size={22} color={AppTheme.colors.text} />
+                <Text style={{ marginLeft: 2, fontSize: 16, color: AppTheme.colors.text }}>Back</Text>
+              </TouchableOpacity>
+            );
+          },
+        })}
       >
         {/* Splash shows every cold start for ~4s, then routes based on user state */}
         <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }} />
 
         {/* Marketing / Welcome slides */}
-        <Stack.Screen name="Marketing1" component={Marketing1} options={{title: "Welcome"}} />
-        <Stack.Screen name="Marketing2" component={Marketing2} options={{title: "Welcome"}} />
-        <Stack.Screen name="Marketing3" component={Marketing3} options={{title: "Welcome"}} />
+        <Stack.Screen name="Marketing1" component={Marketing1} options={{ title: "Welcome" }} />
+        <Stack.Screen name="Marketing2" component={Marketing2} options={{ title: "Welcome" }} />
+        <Stack.Screen name="Marketing3" component={Marketing3} options={{ title: "Welcome" }} />
         <Stack.Screen name="First" component={First} options={{ title: "Your Details" }} />
 
         {/* Data capture */}
