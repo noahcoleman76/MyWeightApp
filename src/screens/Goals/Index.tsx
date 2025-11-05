@@ -1,14 +1,7 @@
+import dayjs from "dayjs";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Keyboard,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import Card from "../../components/ui/Card";
-import SectionHeader from "../../components/ui/SectionHeader";
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { computeDailyTarget, kgToLb, lbToKg } from "../../lib/calorieMath";
 import { useGoalStore } from "../../state/goalStore";
 import { useProfileStore } from "../../state/profileStore";
@@ -17,25 +10,31 @@ export default function Goals() {
   const { profile, setActivity, setUnits, setStartingWeightKg } = useProfileStore();
   const { mode, goalWeightKg, targetDateISO, setMode, setGoalWeightKg, setTargetDateISO } = useGoalStore();
 
-  const [goalW, setGoalW] = useState(
-    goalWeightKg ? String(Math.round((profile.weightUnit === "kg" ? goalWeightKg : kgToLb(goalWeightKg)))) : ""
-  );
-  const [startW, setStartW] = useState(
-    profile.startingWeightKg != null
-      ? String(Math.round(profile.weightUnit === "kg" ? profile.startingWeightKg : kgToLb(profile.startingWeightKg)))
-      : ""
-  );
   const [hUnits, setHUnits] = useState(profile.heightUnit ?? "in");
   const [wUnits, setWUnits] = useState(profile.weightUnit ?? "lb");
 
-  // Keep text fields in sync if user toggles units
+  // helpers for unit display
+  const toDisplay = (kg?: number | null) => {
+    if (kg == null) return "—";
+    return wUnits === "kg" ? `${Math.round(kg)} kg` : `${Math.round(kgToLb(kg))} lb`;
+  };
+  const nToDisplay = (kg?: number | null) => {
+    if (kg == null) return undefined;
+    return wUnits === "kg" ? Math.round(kg) : Math.round(kgToLb(kg));
+  };
+  const unitSuffix = wUnits === "kg" ? "kg" : "lb";
+
+  const [goalW, setGoalW] = useState(
+    goalWeightKg ? String(nToDisplay(goalWeightKg)) : ""
+  );
+  const [startW, setStartW] = useState(
+    profile.startingWeightKg != null ? String(nToDisplay(profile.startingWeightKg)) : ""
+  );
+
+  // Sync text fields when weight units toggle
   useEffect(() => {
-    if (goalWeightKg != null) {
-      setGoalW(String(Math.round(wUnits === "kg" ? goalWeightKg : kgToLb(goalWeightKg))));
-    }
-    if (profile.startingWeightKg != null) {
-      setStartW(String(Math.round(wUnits === "kg" ? profile.startingWeightKg : kgToLb(profile.startingWeightKg))));
-    }
+    if (goalWeightKg != null) setGoalW(String(nToDisplay(goalWeightKg)));
+    if (profile.startingWeightKg != null) setStartW(String(nToDisplay(profile.startingWeightKg)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wUnits]);
 
@@ -45,7 +44,7 @@ export default function Goals() {
         sex: profile.gender,
         age: profile.age,
         heightCm: profile.height,
-        currentWeightKg: profile.currentWeight,
+        currentWeightKg: profile.currentWeightKg,
         activity: profile.activityLevel,
         mode,
         goalWeightKg,
@@ -54,82 +53,175 @@ export default function Goals() {
     [profile, mode, goalWeightKg, targetDateISO]
   );
 
+  // Derived metrics for tiles
+  const isMaintain = mode === "maintain";
+  const currentKg =
+    profile.currentWeightKg ?? profile.startingWeightKg ?? 0;
+
+  const weightLeftDisplay =
+    !isMaintain && goalWeightKg != null
+      ? `${Math.max(0, Math.round(Math.abs((wUnits === "kg" ? currentKg - goalWeightKg : kgToLb(currentKg - goalWeightKg)) as number)))} ${unitSuffix}`
+      : undefined;
+
+  const hasStart = profile.startingWeightKg != null;
+  const deltaFromStart =
+    hasStart && currentKg
+      ? (wUnits === "kg"
+          ? Math.round(currentKg - (profile.startingWeightKg as number))
+          : Math.round(kgToLb(currentKg - (profile.startingWeightKg as number))))
+      : undefined;
+
+  const estimate = useMemo(() => {
+    if (isMaintain || !goalWeightKg) return undefined as { date: string; days: number } | undefined;
+
+    const deficitPerDay = maintenance - (target ?? maintenance);
+    const surplusPerDay = (target ?? maintenance) - maintenance;
+    const kgToLose = currentKg - goalWeightKg;
+    const kgToGain = goalWeightKg - currentKg;
+
+    let daysNeeded: number | undefined;
+    if (kgToLose > 0 && deficitPerDay > 0) daysNeeded = (kgToLose * 7700) / deficitPerDay;
+    else if (kgToGain > 0 && surplusPerDay > 0) daysNeeded = (kgToGain * 7700) / surplusPerDay;
+    else if (goalWeightKg === currentKg) daysNeeded = 0;
+    else return undefined;
+
+    if (!isFinite(daysNeeded!)) return undefined;
+    const rounded = Math.max(0, Math.ceil(daysNeeded!));
+    const base = dayjs().format("YYYY-MM-DD");
+    return { days: rounded, date: dayjs(base).add(rounded, "day").format("MMM D, YYYY") };
+  }, [isMaintain, goalWeightKg, currentKg, maintenance, target]);
+
+  // Theme tokens (keep in sync with Dashboard)
+  const ACCENT = "#5eada8";
+  const TEXT = "#0f172a";
+  const BG = "#f7f7f7";
+  const CARD_BG = "#ffffff";
+  const BORDER = "#eef2f7";
+
+  // rounded kcal display
+  const kcal = (n?: number) => (typeof n === "number" ? `${Math.round(n)} kcal` : "—");
+
   return (
-    <Pressable
-      className="flex-1 bg-white dark:bg-[#0b0f14]"
-      onPress={Keyboard.dismiss}
-      // Ensure the pressable doesn't announce as a button for screen readers
-      accessible={false}
-    >
+    <SafeAreaView style={[s.safe, { backgroundColor: BG }]}>
       <ScrollView
-        className="flex-1 p-4"
+        contentContainerStyle={s.scroll}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentInsetAdjustmentBehavior="automatic"
       >
-        <SectionHeader title="Your Goal" />
-        <Card>
+        {/* Title */}
+        <View style={s.header}>
+          <Text style={[s.title, { color: TEXT, textAlign: "center" }]}>Goals</Text>
+        </View>
+
+        {/* ===== TOP: Metric Cards ===== */}
+        <View style={s.tilesWrap}>
+          <Tile title="Maintenance" value={kcal(maintenance)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+          <Tile title="Target" value={kcal(target)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+
+          <Tile title="Current Weight" value={toDisplay(profile.currentWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+          <Tile title="Starting Weight" value={toDisplay(profile.startingWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+
+          {!isMaintain && weightLeftDisplay != null && (
+            <Tile title="Weight Left" value={weightLeftDisplay} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+          )}
+
+          {deltaFromStart != null && (
+            <Tile
+              title={deltaFromStart < 0 ? "Weight Lost" : deltaFromStart > 0 ? "Weight Gained" : "Weight Change"}
+              value={`${deltaFromStart > 0 ? "+" : ""}${deltaFromStart} ${unitSuffix}`}
+              sub="vs start"
+              BORDER={BORDER}
+              CARD_BG={CARD_BG}
+              TEXT={TEXT}
+            />
+          )}
+
+          {!isMaintain && (
+            <Tile
+              title="Days to Go"
+              value={
+                estimate?.days != null
+                  ? String(estimate.days)
+                  : targetDateISO
+                  ? String(Math.max(0, dayjs(targetDateISO).diff(dayjs(), "day")))
+                  : "—"
+              }
+              sub={estimate?.date ?? (targetDateISO ? dayjs(targetDateISO).format("MMM D, YYYY") : "No date set")}
+              BORDER={BORDER}
+              CARD_BG={CARD_BG}
+              TEXT={TEXT}
+            />
+          )}
+        </View>
+
+        {/* ===== MIDDLE: Mode, Activity, Units ===== */}
+        <Pressable style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]} onPress={Keyboard.dismiss}>
           {/* Mode */}
-          <Text className="mt-4 text-sm text-gray-600">Mode</Text>
-          <View className="mt-2 flex-row gap-8">
+          <Text style={s.label}>Mode</Text>
+          <View style={s.chipsRow}>
             {(["lose", "maintain", "gain"] as const).map((m) => (
-              <Text
-                key={m}
-                onPress={() => setMode(m)}
-                className={`px-3 py-2 rounded-lg border ${mode === m ? "bg-black text-white" : "bg-white"}`}
-              >
-                {m}
-              </Text>
+              <Chip key={m} text={cap(m)} active={mode === m} onPress={() => setMode(m)} accent={ACCENT} />
             ))}
           </View>
 
           {/* Activity */}
-          <Text className="mt-6 text-sm text-gray-600">Activity Level</Text>
-          <View className="mt-2 flex-row flex-wrap gap-3">
+          <Text style={[s.label, { marginTop: 18 }]}>Activity Level</Text>
+          <View style={s.chipsWrap}>
             {(["sedentary", "light", "moderate", "high"] as const).map((a) => (
-              <Text
-                key={a}
-                onPress={() => setActivity(a)}
-                className={`px-3 py-2 rounded-lg border ${profile.activityLevel === a ? "bg-black text-white" : "bg-white"}`}
-              >
-                {a}
-              </Text>
+              <Chip key={a} text={cap(a)} active={profile.activityLevel === a} onPress={() => setActivity(a)} accent={ACCENT} />
             ))}
           </View>
 
-          {/* Units */}
-          <Text className="mt-6 text-sm text-gray-600">Units</Text>
-          <View className="mt-2 flex-row gap-6">
-            <Text
-              onPress={() => { setUnits("lb", hUnits as any); setWUnits("lb"); }}
-              className={`px-3 py-2 rounded-lg border ${wUnits === "lb" ? "bg-black text-white" : "bg-white"}`}
-            >
-              Weight: lb
-            </Text>
-            <Text
-              onPress={() => { setUnits("kg", hUnits as any); setWUnits("kg"); }}
-              className={`px-3 py-2 rounded-lg border ${wUnits === "kg" ? "bg-black text-white" : "bg-white"}`}
-            >
-              Weight: kg
-            </Text>
-            <Text
-              onPress={() => { setUnits(wUnits as any, "in"); setHUnits("in"); }}
-              className={`px-3 py-2 rounded-lg border ${hUnits === "in" ? "bg-black text-white" : "bg-white"}`}
-            >
-              Height: in
-            </Text>
-            <Text
-              onPress={() => { setUnits(wUnits as any, "cm"); setHUnits("cm"); }}
-              className={`px-3 py-2 rounded-lg border ${hUnits === "cm" ? "bg-black text-white" : "bg-white"}`}
-            >
-              Height: cm
-            </Text>
+          {/* Units split into separate lines */}
+          <Text style={[s.label, { marginTop: 18 }]}>Weight Units</Text>
+          <View style={s.chipsRow}>
+            <Chip
+              text="lb"
+              active={wUnits === "lb"}
+              onPress={() => {
+                setUnits("lb", hUnits as any);
+                setWUnits("lb");
+              }}
+              accent={ACCENT}
+            />
+            <Chip
+              text="kg"
+              active={wUnits === "kg"}
+              onPress={() => {
+                setUnits("kg", hUnits as any);
+                setWUnits("kg");
+              }}
+              accent={ACCENT}
+            />
           </View>
-        </Card>
 
-        <Card>
+          <Text style={[s.label, { marginTop: 18 }]}>Height Units</Text>
+          <View style={s.chipsRow}>
+            <Chip
+              text="in"
+              active={hUnits === "in"}
+              onPress={() => {
+                setUnits(wUnits as any, "in");
+                setHUnits("in");
+              }}
+              accent={ACCENT}
+            />
+            <Chip
+              text="cm"
+              active={hUnits === "cm"}
+              onPress={() => {
+                setUnits(wUnits as any, "cm");
+                setHUnits("cm");
+              }}
+              accent={ACCENT}
+            />
+          </View>
+        </Pressable>
+
+        {/* ===== BOTTOM: Edit Inputs ===== */}
+        <Pressable style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]} onPress={Keyboard.dismiss}>
           {/* Starting Weight */}
-          <Text className="mt-6 text-sm text-gray-600">Starting Weight ({wUnits})</Text>
+          <Text style={s.label}>Starting Weight ({wUnits})</Text>
           <TextInput
             value={startW}
             onChangeText={(t) => {
@@ -139,16 +231,15 @@ export default function Goals() {
             }}
             placeholder={wUnits === "lb" ? "e.g. 200" : "e.g. 91"}
             keyboardType="numeric"
-            className="mt-2 px-3 py-2 border rounded-lg"
-            blurOnSubmit
             returnKeyType="done"
             onSubmitEditing={Keyboard.dismiss}
+            style={s.input}
           />
 
-          {/* Goal weight + date (when not maintain) */}
-          {mode !== "maintain" && (
+          {/* Goal weight + date (for lose / gain) */}
+          {!isMaintain && (
             <>
-              <Text className="mt-6 text-sm text-gray-600">Goal Weight ({wUnits})</Text>
+              <Text style={[s.label, { marginTop: 16 }]}>Goal Weight ({wUnits})</Text>
               <TextInput
                 value={goalW}
                 onChangeText={(t) => {
@@ -158,38 +249,157 @@ export default function Goals() {
                 }}
                 placeholder={wUnits === "lb" ? "e.g. 170" : "e.g. 77"}
                 keyboardType="numeric"
-                className="mt-2 px-3 py-2 border rounded-lg"
-                blurOnSubmit
                 returnKeyType="done"
                 onSubmitEditing={Keyboard.dismiss}
+                style={s.input}
               />
 
-              <Text className="mt-4 text-sm text-gray-600">Desired End Date (optional)</Text>
+              <Text style={[s.label, { marginTop: 16 }]}>Desired End Date (optional)</Text>
               <TextInput
                 value={targetDateISO ?? ""}
                 onChangeText={(s) => setTargetDateISO(s.trim() === "" ? undefined : s)}
                 placeholder="YYYY-MM-DD"
-                className="mt-2 px-3 py-2 border rounded-lg"
-                blurOnSubmit
                 returnKeyType="done"
                 onSubmitEditing={Keyboard.dismiss}
+                style={s.input}
               />
             </>
           )}
-        </Card>
-
-        <Card>
-          {/* Summary */}
-          <View className="mt-6 p-4 rounded-xl border">
-            <Text>
-              Maintenance: <Text className="font-semibold">{maintenance} kcal</Text>
-            </Text>
-            <Text className="mt-1">
-              Daily Target: <Text className="font-semibold">{target} kcal</Text>
-            </Text>
-          </View>
-        </Card>
+        </Pressable>
       </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+/* ---------- Small UI bits ---------- */
+
+function cap(s: string) {
+  return s.slice(0, 1).toUpperCase() + s.slice(1);
+}
+
+function Chip({
+  text,
+  active,
+  onPress,
+  accent,
+}: {
+  text: string;
+  active?: boolean;
+  onPress: () => void;
+  accent: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        chipStyles.base,
+        {
+          backgroundColor: active ? accent : "#ffffff",
+          borderColor: active ? accent : "#e5e7eb",
+        },
+      ]}
+      android_ripple={{ color: "#00000010" }}
+    >
+      <Text style={[chipStyles.text, { color: active ? "#ffffff" : "#111827" }]}>{text}</Text>
     </Pressable>
   );
 }
+
+function Tile({
+  title,
+  value,
+  sub,
+  BORDER,
+  CARD_BG,
+  TEXT,
+}: {
+  title: string;
+  value: string;
+  sub?: string;
+  BORDER: string;
+  CARD_BG: string;
+  TEXT: string;
+}) {
+  return (
+    <View style={[tileStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+      <Text style={[tileStyles.title, { color: TEXT }]}>{title}</Text>
+      <Text style={[tileStyles.value, { color: TEXT }]}>{value}</Text>
+      {sub ? <Text style={tileStyles.sub}>{sub}</Text> : null}
+    </View>
+  );
+}
+
+/* ---------- Styles ---------- */
+
+const s = StyleSheet.create({
+  safe: { flex: 1 },
+  scroll: { paddingBottom: 28 },
+  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, alignItems: "center" },
+  title: { fontSize: 34, fontWeight: "800" },
+
+  full: { marginHorizontal: 20, marginBottom: 16 },
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+
+  label: { fontSize: 14, color: "#6b7280", fontWeight: "600" },
+
+  chipsRow: { flexDirection: "row", gap: 10, marginTop: 8 },
+  chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+
+  tilesWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  input: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+});
+
+const chipStyles = StyleSheet.create({
+  base: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  text: { fontSize: 14, fontWeight: "600" },
+});
+
+const tileStyles = StyleSheet.create({
+  card: {
+    width: "48%",
+    marginBottom: 12,
+    minHeight: 94,
+    justifyContent: "center",
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  title: { fontSize: 16, fontWeight: "600" },
+  value: { fontSize: 26, fontWeight: "800", marginTop: 4 },
+  sub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+});

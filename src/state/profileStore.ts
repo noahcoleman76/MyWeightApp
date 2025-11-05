@@ -12,7 +12,7 @@ export interface Profile {
   gender: "male" | "female";
   age: number;                 // years
   height: number;              // cm
-  currentWeight: number;       // kg
+  currentWeightKg: number;       // kg
   startingWeightKg?: number;   // kg  <-- NEW
   activityLevel: ActivityLevel;
   startDate: string;           // ISO
@@ -43,7 +43,7 @@ const defaultProfile: Profile = {
   gender: "male",
   age: 25,
   height: 175,
-  currentWeight: 80,
+  currentWeightKg: 80,
   startingWeightKg: 80, // default to current
   activityLevel: "light",
   startDate: new Date().toISOString(),
@@ -63,7 +63,7 @@ export const useProfileStore = create<ProfileStore>()(
           profile: { ...s.profile, age: Math.max(0, Math.min(120, new Date().getFullYear() - year)) },
         })),
       setHeightCm: (height) => set((s) => ({ profile: { ...s.profile, height } })),
-      setCurrentWeightKg: (currentWeight) => set((s) => ({ profile: { ...s.profile, currentWeight } })),
+      setCurrentWeightKg: (currentWeightKg) => set((s) => ({ profile: { ...s.profile, currentWeightKg } })),
       setStartingWeightKg: (kg) => set((s) => ({ profile: { ...s.profile, startingWeightKg: kg } })), // NEW
       setActivity: (activityLevel) => set((s) => ({ profile: { ...s.profile, activityLevel } })),
       setUnits: (weightUnit, heightUnit) => set((s) => ({ profile: { ...s.profile, weightUnit, heightUnit } })),
@@ -78,7 +78,7 @@ export const useProfileStore = create<ProfileStore>()(
       migrate: (persisted: any, _v) => {
         // If migrating from older versions, fill startingWeightKg if missing
         if (persisted?.state?.profile && persisted.state.profile.startingWeightKg == null) {
-          persisted.state.profile.startingWeightKg = persisted.state.profile.currentWeight ?? 80;
+          persisted.state.profile.startingWeightKg = persisted.state.profile.currentWeightKg ?? 80;
         }
         return persisted;
       },

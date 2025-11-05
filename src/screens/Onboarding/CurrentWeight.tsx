@@ -6,7 +6,7 @@ import { useGoalStore } from "../../state/goalStore";
 import { useProfileStore } from "../../state/profileStore";
 
 export default function CurrentWeight() {
-  const setCurrentWeightKg = useProfileStore((s) => s.setCurrentWeightKg);
+  const setStartingWeightKg = useProfileStore((s) => s.setStartingWeightKg);
   const nav = useNavigation<any>();
   const mode = useGoalStore((s) => s.mode);
 
@@ -15,7 +15,7 @@ export default function CurrentWeight() {
       title="Current weight"
       placeholder="Pounds"
       onConfirm={(lb) => {
-        setCurrentWeightKg(lbToKg(lb));
+        setStartingWeightKg(lbToKg(lb));
         if (mode === "maintain") nav.navigate("OnboardingHowItWorks");
         else nav.navigate("GoalWeight");
       }}

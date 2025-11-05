@@ -44,7 +44,7 @@ export default function Dashboard() {
 
   const currentWeightKg =
     (latestLogged.kg != null ? latestLogged.kg : undefined) ??
-    (profile.startingWeightKg ?? profile.currentWeight);
+    (profile.startingWeightKg ?? profile.currentWeightKg);
 
   // ---- calories + maintenance (needed for estimate)
   const { maintenance, target: computedTarget } = useMemo(
