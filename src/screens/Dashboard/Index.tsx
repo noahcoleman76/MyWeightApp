@@ -1,41 +1,52 @@
-import { useNavigation } from "@react-navigation/native";
+import { useAppStore } from "@/src/state/appStore";
+import { useSubscriptionStore } from "@/src/state/subscriptionStore";
+import { useNavigation, useTheme } from "@react-navigation/native";
 import dayjs from "dayjs";
 import React, { useMemo } from "react";
-import { Text, View } from "react-native";
-import { VictoryAxis, VictoryBar, VictoryChart, VictoryLine } from "victory-native";
-import Button from "../../components/ui/Button";
-import Card from "../../components/ui/Card";
-import SectionHeader from "../../components/ui/SectionHeader";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  VictoryArea,
+  VictoryAxis,
+  VictoryChart,
+  VictoryLine,
+  VictoryScatter,
+} from "victory-native";
 import { computeDailyTarget, kgToLb } from "../../lib/calorieMath";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
 
+const toLb = (kg: number) => Math.round(kgToLb(kg) * 10) / 10;
+
 export default function Dashboard() {
   const nav = useNavigation<any>();
+  const { colors } = useTheme();
   const { profile } = useProfileStore();
-  const { mode, goalWeightKg, targetDateISO, dailyTargetOverride } = useGoalStore();
+  const { goalWeightKg, targetDateISO, dailyTargetOverride, mode } = useGoalStore();
   const { logs, dailyTotals, streak } = useLogStore();
 
-  // Most recent logged weight (if any), otherwise starting, otherwise profile.current
+  const ACCENT = colors?.primary ?? "#5eada8";
+  const TEXT = colors?.text ?? "#0f172a";
+  const BG = colors?.background ?? "#f7f7f7";
+  const CARD_BG = "#ffffff";
+  const BORDER = "#eef2f7";
+
+  // ---- latest weight + latest log date
   const latestLogged = useMemo(() => {
     const withWt = logs.filter((l) => typeof l.weightKg === "number");
-    if (!withWt.length) return undefined as number | undefined;
-    withWt.sort((a, b) => (a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1));
-    return withWt[0]!.weightKg as number;
-  }, [logs]);
-
-  const latestLogDateISO = useMemo(() => {
-    if (!logs.length) return undefined as string | undefined;
-    const sorted = [...logs].sort((a, b) => (a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1));
-    return sorted[0].dateISO;
+    if (!withWt.length) return { kg: undefined as number | undefined, iso: undefined as string | undefined };
+    withWt.sort((a, b) =>
+      a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1
+    );
+    return { kg: withWt[0]!.weightKg as number, iso: withWt[0]!.dateISO as string };
   }, [logs]);
 
   const currentWeightKg =
-    latestLogged ??
-    (profile.startingWeightKg != null ? profile.startingWeightKg : profile.currentWeight);
+    (latestLogged.kg != null ? latestLogged.kg : undefined) ??
+    (profile.startingWeightKg ?? profile.currentWeight);
 
-  // Maintenance + computed target (based on current profile/goal)
+  // ---- calories + maintenance (needed for estimate)
   const { maintenance, target: computedTarget } = useMemo(
     () =>
       computeDailyTarget({
@@ -50,49 +61,21 @@ export default function Dashboard() {
       }),
     [profile, mode, goalWeightKg, targetDateISO, currentWeightKg]
   );
-
-  // Manual override takes precedence if set
   const effectiveTarget = dailyTargetOverride ?? computedTarget;
 
-  // 14-day bars (visual history only; no averages/suggestions)
-  const days = [...Array(14)].map((_, i) => dayjs().subtract(13 - i, "day"));
-  const chartData = days.map((d) => {
-    const iso = d.format("YYYY-MM-DD");
-    return { x: d.format("MM/DD"), y: dailyTotals(iso).calories || 0 };
-  });
-
-  const todayISO = dayjs().format("YYYY-MM-DD");
-  const today = dailyTotals(todayISO);
-
-  // Display helpers
-  const currentWDisplay =
-    profile.weightUnit === "kg"
-      ? `${Math.round(currentWeightKg)} kg`
-      : `${Math.round(kgToLb(currentWeightKg))} lb`;
-
-  const goalWDisplay =
-    goalWeightKg == null
-      ? undefined
-      : profile.weightUnit === "kg"
-        ? `${Math.round(goalWeightKg)} kg`
-        : `${Math.round(kgToLb(goalWeightKg))} lb`;
-
-  // ----- Estimated completion (based on simple energy math) -----
-  // If goal < current: need loss; deficit/day = maintenance - effectiveTarget (must be >0)
-  // If goal > current: need gain;  surplus/day = effectiveTarget - maintenance (must be >0)
-  // Days = (kg_to_change * 7700 kcal/kg) / (daily_kcal_change)
+  // ---- estimate days to goal (hide in maintain)
+  const isMaintain = mode === "maintain";
   const estimate = useMemo(() => {
-    if (!goalWeightKg) return undefined as { date: string; days: number } | undefined;
+    if (isMaintain || !goalWeightKg) return undefined as { date: string; days: number } | undefined;
 
-    const baseDateISO = latestLogDateISO ?? todayISO;
-    const kgToLose = currentWeightKg - goalWeightKg;   // positive if goal is lower (lose)
-    const kgToGain = goalWeightKg - currentWeightKg;   // positive if goal is higher (gain)
+    const baseDateISO = latestLogged.iso ?? dayjs().format("YYYY-MM-DD");
+    const kgToLose = currentWeightKg - goalWeightKg;
+    const kgToGain = goalWeightKg - currentWeightKg;
 
-    const deficitPerDay = maintenance - effectiveTarget;       // >0 means eating below maintenance
-    const surplusPerDay = effectiveTarget - maintenance;       // >0 means eating above maintenance
+    const deficitPerDay = maintenance - effectiveTarget;
+    const surplusPerDay = effectiveTarget - maintenance;
 
     let daysNeeded: number | undefined;
-
     if (kgToLose > 0 && deficitPerDay > 0) {
       daysNeeded = (kgToLose * 7700) / deficitPerDay;
     } else if (kgToGain > 0 && surplusPerDay > 0) {
@@ -100,83 +83,276 @@ export default function Dashboard() {
     } else if (goalWeightKg === currentWeightKg) {
       daysNeeded = 0;
     } else {
-      // Direction mismatch (e.g., trying to lose while on surplus) or zero delta → no estimate
       return undefined;
     }
 
     if (!isFinite(daysNeeded!)) return undefined;
     const rounded = Math.max(0, Math.ceil(daysNeeded!));
-    const date = dayjs(baseDateISO).add(rounded, "day").format("YYYY-MM-DD");
+    const date = dayjs(baseDateISO).add(rounded, "day").format("MMM D, YYYY");
     return { date, days: rounded };
-  }, [goalWeightKg, currentWeightKg, maintenance, effectiveTarget, latestLogDateISO, todayISO]);
+  }, [isMaintain, goalWeightKg, currentWeightKg, maintenance, effectiveTarget, latestLogged.iso]);
+
+  // ---- weights used in tiles
+  const startingWDisplay =
+    profile.startingWeightKg != null
+      ? (profile.weightUnit === "kg"
+        ? `${Math.round(profile.startingWeightKg)} kg`
+        : `${Math.round(kgToLb(profile.startingWeightKg))} lb`)
+      : "—";
+
+  const currentWDisplay =
+    profile.weightUnit === "kg" ? `${Math.round(currentWeightKg)} kg` : `${toLb(currentWeightKg)} lb`;
+
+  const lbsLeft =
+    !isMaintain && goalWeightKg != null
+      ? Math.max(0, Math.round(Math.abs(toLb(currentWeightKg - goalWeightKg))))
+      : undefined;
+
+  const hasStart = profile.startingWeightKg != null;
+  const deltaFromStartLb = hasStart ? Math.round(toLb(currentWeightKg - (profile.startingWeightKg as number))) : undefined;
+  const lostOrGainedLabel =
+    deltaFromStartLb != null
+      ? deltaFromStartLb < 0
+        ? "Weight Lost"
+        : deltaFromStartLb > 0
+          ? "Weight Gained"
+          : "Weight Change"
+      : undefined;
+
+  // ---- chart series (7 days, carry forward)
+  const last7 = [...Array(7)].map((_, i) => dayjs().subtract(6 - i, "day"));
+  const byDate = new Map<string, number>();
+  logs.filter(l => typeof l.weightKg === "number").forEach(l => byDate.set(l.dateISO, l.weightKg!));
+  let carry = currentWeightKg;
+  const weightSeries = last7.map((d) => {
+    const iso = d.format("YYYY-MM-DD");
+    if (byDate.has(iso)) carry = byDate.get(iso)!;
+    return { x: d.format("ddd"), y: toLb(carry) };
+  });
+
+  const ys = weightSeries.map(p => p.y);
+  const hasData = ys.length > 0;
+  const yMin = hasData ? Math.min(...ys) : 0;
+  const yMax = hasData ? Math.max(...ys) : 1;
+  const pad = Math.max(0.5, (yMax - yMin) * 0.2);
+  const domainY: [number, number] = [Math.floor(yMin - pad), Math.ceil(yMax + pad)];
+  const xTicks = [weightSeries[0]?.x, weightSeries[2]?.x, weightSeries[4]?.x, weightSeries[6]?.x].filter(Boolean);
+
+  // Reset all data for testing, start at onboarding
+  const resetProfile = useProfileStore((s) => s.reset);
+  const resetGoal = useGoalStore((s) => s.reset);
+  const resetLogs = useLogStore((s) => s.reset);
+  const resetSub = useSubscriptionStore((s) => s.reset);
+  const setLoggedIn = useAppStore((s) => s.setLoggedIn);
+  const setOnboardingDone = useAppStore((s) => s.setOnboardingDone);
+  const handleResetAll = () => {
+    Alert.alert("Reset all data?", "This will erase onboarding, logs, and login state.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Reset",
+        style: "destructive",
+        onPress: () => {
+          resetProfile?.();
+          resetGoal?.();
+          resetLogs?.();
+          resetSub?.();
+          setLoggedIn?.(false);
+          setOnboardingDone?.(false);
+          nav.reset({ index: 0, routes: [{ name: "Splash" }] });
+        },
+      },
+    ]);
+  };
 
   return (
-    <View className="flex-1 bg-white p-4">
-      <SectionHeader title="Dashboard" subtitle={`Hello, ${profile.name}`} />
-      <Text className="mt-1 text-gray-600">Hello, {profile.name}</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Title (centered) */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: TEXT, textAlign: "center" }]}>Dashboard</Text>
+        </View>
 
-      <Card>
-        <View className="mt-4 p-4 rounded-xl border">
-          <Text>Mode: <Text className="font-semibold">{mode}</Text></Text>
-          <Text className="mt-1">Maintenance: <Text className="font-semibold">{maintenance} kcal</Text></Text>
-          <Text className="mt-1">
-            Daily Target: <Text className="font-semibold">{effectiveTarget} kcal</Text>
-            {dailyTargetOverride != null ? <Text className="text-gray-500"> (manual)</Text> : null}
-          </Text>
-          <Text className="mt-1">
-            Current: <Text className="font-semibold">{currentWDisplay}</Text>
-            {latestLogged != null ? <Text className="text-gray-500"> (from log)</Text> : null}
-          </Text>
-          {profile.startingWeightKg != null ? (
-            <Text className="mt-1">
-              Starting: <Text className="font-semibold">
-                {profile.weightUnit === "kg"
-                  ? `${Math.round(profile.startingWeightKg)} kg`
-                  : `${Math.round(kgToLb(profile.startingWeightKg))} lb`}
+        {/* Row 1: Streak (full width) */}
+        <View style={[styles.card, styles.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+          <View style={styles.streakRow}>
+            <Text style={[styles.flame, { color: ACCENT }]}>🔥</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.streakValue, { color: TEXT }]}>{streak()} days</Text>
+              <Text style={styles.streakLabel}>Login Streak</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Tiles grid (wraps into 2 per row) */}
+        <View style={styles.tilesWrap}>
+          {/* Target Calories */}
+          <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+            <Text style={[styles.tileLabel, { color: TEXT }]}>Target Calories</Text>
+            <Text style={[styles.tileValue, { color: TEXT }]}>{Math.round(effectiveTarget)}</Text>
+            <Text style={styles.tileSub}>Today</Text>
+          </View>
+
+          {/* Weight Left (if applicable) */}
+          {/* {lbsLeft != null && (
+            <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+              <Text style={[styles.tileLabel, { color: TEXT }]}>Weight Left</Text>
+              <Text style={[styles.tileValue, { color: TEXT }]}>{lbsLeft} lb</Text>
+              <Text style={styles.tileSub}>{goalWeightKg ? `Goal: ${Math.round(kgToLb(goalWeightKg))} lb` : ""}</Text>
+            </View>
+          )} */}
+
+          {/* Days to Go + estimated/planned date */}
+          {!isMaintain && (
+            <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+              <Text style={[styles.tileLabel, { color: TEXT }]}>Days to Go</Text>
+              <Text style={[styles.tileValue, { color: TEXT }]}>
+                {estimate?.days ?? (targetDateISO ? Math.max(0, dayjs(targetDateISO).diff(dayjs(), "day")) : "—")}
               </Text>
-            </Text>
-          ) : null}
-          {goalWDisplay ? <Text className="mt-1">Goal: <Text className="font-semibold">{goalWDisplay}</Text></Text> : null}
-          {targetDateISO ? <Text className="mt-1">Target Date: <Text className="font-semibold">{targetDateISO}</Text></Text> : null}
-          <Text className="mt-1">Streak: <Text className="font-semibold">{streak()} days</Text></Text>
+              <Text style={styles.tileSub}>
+                {estimate?.date ??
+                  (targetDateISO ? dayjs(targetDateISO).format("MMM D, YYYY") : "No date set")}
+              </Text>
+            </View>
+          )}
 
-          {/* Estimated completion based on maintenance vs target and weight gap */}
-          {estimate ? (
-            <Text className="mt-1">
-              Estimated completion: <Text className="font-semibold">{estimate.date}</Text>{" "}
-              <Text className="text-gray-600">(≈ {estimate.days} days)</Text>
-            </Text>
-          ) : null}
+          {/* Starting Weight (always) */}
+          <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+            <Text style={[styles.tileLabel, { color: TEXT }]}>Starting Weight</Text>
+            <Text style={[styles.tileValue, { color: TEXT }]}>{startingWDisplay}</Text>
+          </View>
+
+          {/* Lost/Gained (if start exists) */}
+          {lostOrGainedLabel && (
+            <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+              <Text style={[styles.tileLabel, { color: TEXT }]}>{lostOrGainedLabel}</Text>
+              <Text style={[styles.tileValue, { color: TEXT }]}>
+                {deltaFromStartLb! > 0 ? `+${deltaFromStartLb}` : `${deltaFromStartLb}`} lb
+              </Text>
+              <Text style={styles.tileSub}>vs start</Text>
+            </View>
+          )}
         </View>
-      </Card>
 
-      <Card>
-        <View className="mt-6">
-          <VictoryChart domainPadding={{ x: 12, y: 10 }}>
-            <VictoryAxis tickCount={4} style={{ tickLabels: { fontSize: 10 } }} />
-            <VictoryAxis dependentAxis style={{ tickLabels: { fontSize: 10 } }} />
-            <VictoryBar data={chartData} x="x" y="y" />
-            <VictoryLine y={() => effectiveTarget} />
-          </VictoryChart>
+        {/* Current Weight + Chart (full width) */}
+        <View style={[styles.card, styles.full, { backgroundColor: CARD_BG, borderColor: BORDER, overflow: "hidden" }]}>
+          <Text style={[styles.sectionTitle, { color: TEXT }]}>Current Weight</Text>
+          <Text style={[styles.currentValue, { color: TEXT }]}>{currentWDisplay}</Text>
+
+          <View style={styles.chartWrap}>
+            <VictoryChart
+              padding={{ top: 10, bottom: 36, left: 56, right: 24 }}
+              domain={{ y: domainY }}
+              height={220}
+              width={undefined as unknown as number}
+            >
+              <VictoryAxis
+                tickValues={xTicks as any}
+                style={{ tickLabels: { fontSize: 12, fill: "#6b7280" }, axis: { stroke: "transparent" }, ticks: { stroke: "transparent" } }}
+              />
+              <VictoryAxis
+                dependentAxis
+                style={{ tickLabels: { fontSize: 12, fill: "#6b7280" }, grid: { stroke: "#e5e7eb" }, axis: { stroke: "transparent" } }}
+              />
+              <VictoryArea data={weightSeries} style={{ data: { fill: ACCENT + "22", strokeWidth: 0 } }} />
+              <VictoryLine data={weightSeries} interpolation="monotoneX" style={{ data: { stroke: ACCENT, strokeWidth: 3 } }} />
+              <VictoryScatter data={weightSeries} size={4} style={{ data: { fill: ACCENT } }} />
+            </VictoryChart>
+          </View>
         </View>
-      </Card>
 
-      <View className="mt-6">
-        <Button title="Add Log" onPress={() => nav.navigate("Log")} />
-      </View>
-
-      <Card>
-        <View className="mt-3 p-3 rounded-lg bg-gray-100">
-          <Text className="text-sm">
-            Today: {today.calories || 0} kcal
-            {typeof today.weightKg === "number"
-              ? profile.weightUnit === "kg"
-                ? ` • ${Math.round(today.weightKg)} kg`
-                : ` • ${Math.round(kgToLb(today.weightKg))} lb`
-              : ""}
-          </Text>
+        {/* Add Log CTA (centered pill) */}
+        <View style={styles.ctaWrap}>
+          <Pressable style={[styles.addBtn, { backgroundColor: ACCENT }]} onPress={() => nav.navigate("Log")}>
+            <Text style={styles.addBtnText}>Add Log</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleResetAll}
+            style={({ pressed }) => [
+              {
+                backgroundColor: "#ef4444",
+                transform: [{ translateY: pressed ? 1 : 0 }],
+              },
+            ]}
+          >
+            <Text>Reset all data (testing)</Text>
+          </Pressable>
         </View>
-      </Card>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  scroll: { paddingBottom: 28 },
+  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, alignItems: "center" },
+  title: { fontSize: 34, fontWeight: "800" },
+
+  full: { marginHorizontal: 20, marginBottom: 16 },
+
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+
+  streakRow: { flexDirection: "row", alignItems: "center" },
+  flame: { fontSize: 28, marginRight: 12 },
+  streakValue: { fontSize: 24, fontWeight: "800" },
+  streakLabel: { fontSize: 14, color: "#6b7280", marginTop: 4 },
+
+  // Grid
+  tilesWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  tileHalf: {
+    width: "48%",
+    marginBottom: 12,
+    minHeight: 104,
+    justifyContent: "center",
+  },
+  tileLabel: { fontSize: 16, fontWeight: "600" },
+  tileValue: { fontSize: 28, fontWeight: "800", marginTop: 4 },
+  tileSub: { fontSize: 13, color: "#6b7280", marginTop: 2 },
+
+  sectionTitle: { fontSize: 18, fontWeight: "700" },
+  currentValue: { fontSize: 36, fontWeight: "800", marginTop: 6, marginBottom: 8 },
+
+  chartWrap: {
+    paddingHorizontal: 8,
+    paddingBottom: 4,
+    paddingTop: 2,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+
+  ctaWrap: { paddingHorizontal: 20, marginTop: 10, marginBottom: 24, alignItems: "center" },
+  addBtn: {
+    width: "86%",
+    borderRadius: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+  },
+  addBtnText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+});
