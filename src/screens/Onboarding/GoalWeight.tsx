@@ -14,7 +14,7 @@ export default function GoalWeight() {
       placeholder="Pounds"
       onConfirm={(lb) => {
         setGoalWeightKg(lbToKg(lb));
-        nav.navigate("TargetDate");
+        nav.navigate("Activity");
       }}
     />
   );

@@ -12,6 +12,7 @@ import Marketing3 from "../screens/Onboarding/Marketing3";
 import Splash from "../screens/Onboarding/Splash";
 
 // Data capture
+import ActivityPage from "../screens/Onboarding/Activity";
 import BirthYear from "../screens/Onboarding/BirthYear";
 import ChooseGender from "../screens/Onboarding/ChooseGender";
 import CurrentWeight from "../screens/Onboarding/CurrentWeight";
@@ -39,7 +40,7 @@ import { AppTheme } from "../styles/theme";
 
 export type RootStackParamList = {
   Splash: undefined;
-  Marketing1: undefined;  // “Welcome”
+  Marketing1: undefined;
   Marketing2: undefined;
   Marketing3: undefined;
   Name: undefined;
@@ -58,6 +59,7 @@ export type RootStackParamList = {
   Paywall: undefined;
   Tabs: undefined;
   First: undefined;
+  Activity: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -114,6 +116,7 @@ export default function RootNavigator() {
         <Stack.Screen name="CurrentWeight" component={CurrentWeight} options={{ title: "Your Details" }} />
         <Stack.Screen name="GoalWeight" component={GoalWeight} options={{ title: "Your Goal" }} />
         <Stack.Screen name="TargetDate" component={TargetDate} options={{ title: "Timeline" }} />
+        <Stack.Screen name="Activity" component={ActivityPage} options={{ title: "Activity" }} />
 
         {/* Info / framing */}
         <Stack.Screen name="OnboardingHowItWorks" component={OnboardingHowItWorks} options={{ title: "How It Works" }} />
