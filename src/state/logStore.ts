@@ -10,6 +10,7 @@ export interface LogEntry {
   calories?: number;
   weightKg?: number;
   notes?: string;
+  createdAtISO?: string; // full ISO timestamp
 }
 
 type LogStore = {
@@ -27,7 +28,10 @@ export const useLogStore = create<LogStore>()(
   persist(
     (set, get) => ({
       logs: [],
-      add: (e) => set((s) => ({ logs: [...s.logs, { id: nanoid(8), ...e }] })),
+      add: (e) =>
+        set((s) => ({
+          logs: [...s.logs, { id: nanoid(8), createdAtISO: dayjs().toISOString(), ...e }],
+        })),
       update: (id, patch) =>
         set((s) => ({ logs: s.logs.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
       remove: (id) => set((s) => ({ logs: s.logs.filter((l) => l.id !== id) })),
@@ -47,21 +51,56 @@ export const useLogStore = create<LogStore>()(
         return Math.round(avg);
       },
       streak: () => {
-        let sCount = 0;
-        for (let i = 0; i < 365; i++) {
-          const day = dayjs().subtract(i, "day").format("YYYY-MM-DD");
-          const had = get().logs.some((l) => l.dateISO === day && ((l.calories ?? 0) > 0 || typeof l.weightKg === "number"));
-          if (had) sCount++;
+        const logs = get().logs;
+        if (!logs?.length) return 0;
+
+        const norm = (v?: string) => (v ? dayjs(v).format("YYYY-MM-DD") : undefined);
+        const today = dayjs().format("YYYY-MM-DD");
+
+        // Does a specific day count toward streak?
+        const countsDay = (dayISO: string) => {
+          // Must have at least one log whose target day is dayISO…
+          const entries = logs.filter((l) => norm(l.dateISO) === dayISO);
+          if (!entries.length) return false;
+
+          // …and at least one of those must have been CREATED on that same local day
+          // For legacy entries with no createdAtISO, we’ll assume it was logged same-day.
+          return entries.some((l) => {
+            const createdDay = norm(l.createdAtISO) ?? norm(l.dateISO);
+            return createdDay === dayISO;
+          });
+        };
+
+        // If today doesn’t count, streak is 0 by your rules
+        if (!countsDay(today)) return 0;
+
+        // Count back consecutive days
+        let count = 1; // today already counted
+        for (let i = 1; i < 730; i++) {
+          const d = dayjs(today).subtract(i, "day").format("YYYY-MM-DD");
+          if (countsDay(d)) count++;
           else break;
         }
-        return sCount;
+        return count;
       },
+
+
       reset: () => set({ logs: [] }),
     }),
     {
       name: "logStore",
       storage: createJSONStorage(() => ({ getItem, setItem, removeItem })),
-      version: 1,
+      version: 2, // ⬅️ bump
+      migrate: (state: any, fromVersion) => {
+        if (fromVersion < 2 && state?.state?.logs) {
+          // Backfill createdAtISO = the log's date (best-effort)
+          state.state.logs = state.state.logs.map((l: any) => ({
+            ...l,
+            createdAtISO: l.createdAtISO ?? dayjs(l.dateISO).toISOString(),
+          }));
+        }
+        return state;
+      },
     }
   )
 );

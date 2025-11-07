@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.noahjcoleman.MyApp"
+      "bundleIdentifier": "com.noahjcoleman.MyApp",
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "adaptiveIcon": {

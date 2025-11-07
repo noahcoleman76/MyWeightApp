@@ -1,6 +1,7 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 import React, { useEffect, useMemo, useState } from "react";
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeDailyTarget, kgToLb, lbToKg } from "../../lib/calorieMath";
 import { useGoalStore } from "../../state/goalStore";
@@ -67,29 +68,26 @@ export default function Goals() {
   const deltaFromStart =
     hasStart && currentKg
       ? (wUnits === "kg"
-          ? Math.round(currentKg - (profile.startingWeightKg as number))
-          : Math.round(kgToLb(currentKg - (profile.startingWeightKg as number))))
+        ? Math.round(currentKg - (profile.startingWeightKg as number))
+        : Math.round(kgToLb(currentKg - (profile.startingWeightKg as number))))
       : undefined;
 
-  const estimate = useMemo(() => {
-    if (isMaintain || !goalWeightKg) return undefined as { date: string; days: number } | undefined;
+  const hasEndDate = !!targetDateISO;
+  const daysRemaining = hasEndDate
+    ? Math.max(0, dayjs(targetDateISO!).diff(dayjs(), "day"))
+    : undefined;
 
-    const deficitPerDay = maintenance - (target ?? maintenance);
-    const surplusPerDay = (target ?? maintenance) - maintenance;
-    const kgToLose = currentKg - goalWeightKg;
-    const kgToGain = goalWeightKg - currentKg;
+  // Date Picker State
+  const [showPicker, setShowPicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date | null>(targetDateISO ? dayjs(targetDateISO).toDate() : null);
 
-    let daysNeeded: number | undefined;
-    if (kgToLose > 0 && deficitPerDay > 0) daysNeeded = (kgToLose * 7700) / deficitPerDay;
-    else if (kgToGain > 0 && surplusPerDay > 0) daysNeeded = (kgToGain * 7700) / surplusPerDay;
-    else if (goalWeightKg === currentKg) daysNeeded = 0;
-    else return undefined;
+  const today = dayjs().startOf("day");
+  const minSelectable = today.add(1, "day").toDate();
 
-    if (!isFinite(daysNeeded!)) return undefined;
-    const rounded = Math.max(0, Math.ceil(daysNeeded!));
-    const base = dayjs().format("YYYY-MM-DD");
-    return { days: rounded, date: dayjs(base).add(rounded, "day").format("MMM D, YYYY") };
-  }, [isMaintain, goalWeightKg, currentKg, maintenance, target]);
+  const prettyEndDate = targetDateISO ? dayjs(targetDateISO).format("MMMM D, YYYY") : "";
+  const openPicker = () => { Keyboard.dismiss(); setShowPicker(true); };
+  const closePicker = () => setShowPicker(false);
+
 
   // Theme tokens (keep in sync with Dashboard)
   const ACCENT = "#5eada8";
@@ -136,22 +134,17 @@ export default function Goals() {
             />
           )}
 
-          {!isMaintain && (
+          {!isMaintain && hasEndDate && (
             <Tile
               title="Days to Go"
-              value={
-                estimate?.days != null
-                  ? String(estimate.days)
-                  : targetDateISO
-                  ? String(Math.max(0, dayjs(targetDateISO).diff(dayjs(), "day")))
-                  : "—"
-              }
-              sub={estimate?.date ?? (targetDateISO ? dayjs(targetDateISO).format("MMM D, YYYY") : "No date set")}
+              value={String(daysRemaining)}
+              sub={dayjs(targetDateISO!).format("MMM D, YYYY")}
               BORDER={BORDER}
               CARD_BG={CARD_BG}
               TEXT={TEXT}
             />
           )}
+
         </View>
 
         {/* ===== MIDDLE: Mode, Activity, Units ===== */}
@@ -255,14 +248,88 @@ export default function Goals() {
               />
 
               <Text style={[s.label, { marginTop: 16 }]}>Desired End Date (optional)</Text>
-              <TextInput
-                value={targetDateISO ?? ""}
-                onChangeText={(s) => setTargetDateISO(s.trim() === "" ? undefined : s)}
-                placeholder="YYYY-MM-DD"
-                returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
-                style={s.input}
-              />
+
+              {/* Display field that opens the picker */}
+              <Pressable
+                onPress={openPicker}
+                style={[s.input, { justifyContent: "center" }]}
+              >
+                <Text style={{ fontSize: 16, color: targetDateISO ? TEXT : "#6b7280", textAlign: "center" }}>
+                  {targetDateISO ? prettyEndDate : "select date (optional)"}
+                </Text>
+              </Pressable>
+
+              {/* Picker Modal (tap backdrop to close) */}
+              <Modal
+                animationType="fade"
+                transparent
+                visible={showPicker}
+                onRequestClose={closePicker}
+                presentationStyle="overFullScreen"
+              >
+                <Pressable style={modalStyles.backdrop} onPress={closePicker}>
+                  <Pressable
+                    style={[modalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
+                    onPress={(e) => e.stopPropagation()}
+                  >
+                    <Text style={[modalStyles.title, { color: TEXT }]}>Choose your end date</Text>
+
+                    <View style={[modalStyles.pickerBox, { borderColor: BORDER }]}>
+                      <DateTimePicker
+                        mode="date"
+                        value={tempDate ?? minSelectable}
+                        minimumDate={minSelectable}
+                        display={Platform.select({
+                          ios: "inline",
+                          android: "calendar",
+                          default: "calendar",
+                        }) as any}
+                        onChange={(_e, date) => {
+                          if (date && dayjs(date).isAfter(today, "day")) {
+                            setTempDate(date);
+                            // On iOS inline we won’t auto-close; on Android calendar, we’ll close after select:
+                            if (Platform.OS === "android") setShowPicker(false);
+                          }
+                        }}
+                        themeVariant="light"
+                        style={modalStyles.picker}
+                      />
+                    </View>
+
+                    {/* Actions */}
+                    <View style={modalStyles.actions}>
+                      {/* Clear / choose later */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          setTempDate(null);
+                          setTargetDateISO(undefined);
+                          closePicker();
+                        }}
+                        style={[modalStyles.linkBtn, { borderColor: BORDER }]}
+                      >
+                        <Text style={modalStyles.linkText}>Choose date later</Text>
+                      </TouchableOpacity>
+
+                      {/* Save */}
+                      <Pressable
+                        onPress={() => {
+                          if (tempDate) {
+                            setTargetDateISO(dayjs(tempDate).format("YYYY-MM-DD"));
+                          }
+                          closePicker();
+                        }}
+                        style={({ pressed }) => [
+                          modalStyles.cta,
+                          { backgroundColor: ACCENT, opacity: pressed ? 0.9 : 1 },
+                        ]}
+                      >
+                        <Text style={modalStyles.ctaText}>Save date</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                </Pressable>
+              </Modal>
+
             </>
           )}
         </Pressable>
@@ -402,4 +469,69 @@ const tileStyles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: "600" },
   value: { fontSize: 26, fontWeight: "800", marginTop: 4 },
   sub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+});
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  card: {
+    width: "92%",
+    maxWidth: 360,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "stretch",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  pickerBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  picker: {
+    width: "100%",
+    transform:
+      Platform.select({
+        ios: [{ scale: 0.98 }],
+        android: [{ scale: 0.95 }],
+        default: [{ scale: 0.95 }],
+      }) as any,
+  },
+  actions: {
+    marginTop: 12,
+    gap: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  linkBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linkText: { fontSize: 14, fontWeight: "600", color: "#6b7280" },
+  cta: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });
