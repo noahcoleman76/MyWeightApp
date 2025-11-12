@@ -8,7 +8,7 @@ export const AppTheme: Theme = {
   colors: {
     ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
     primary: "#5eada8",            // brand.500
-    background: isDark ? "#0b0f14" : "#fffffeff",
+    background: isDark ? "#0b0f14" : "transparent",
     card: isDark ? "#121821" : "#ffffff",
     text: isDark ? "#e6eef8" : "#4b5760ff",
     border: isDark ? "#1e2a39" : "#e9eef5",

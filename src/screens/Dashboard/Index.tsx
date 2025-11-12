@@ -245,16 +245,25 @@ export default function Dashboard() {
   }, [isMaintain, goalWeightKg, currentWeightKg, maintenance, effectiveTarget, latestLogged.iso]);
 
   // ---------- tiles
+  const isExactlyOne = (n: number) => Math.abs(n - 1) < 1e-9;
+
+  const kgUnit = isExactlyOne(currentWeightKg) ? "kg" : "kgs";
+  const lbUnit = isExactlyOne(currentWeightKg) ? "lb" : "lbs";
   const startingWDisplay =
     profile.startingWeightKg != null
-      ? (DISPLAY_UNIT === "kg" ? `${Math.round(profile.startingWeightKg)} kg` : `${Math.round(kgToLb(profile.startingWeightKg))} lb`)
+      ? (DISPLAY_UNIT === "kg" ? `${(profile.startingWeightKg)} ${kgUnit}` : `${(kgToLb(profile.startingWeightKg))} ${lbUnit}`)
       : "—";
 
+  // tiny float-safe equality check
+
   const currentWDisplay =
-    DISPLAY_UNIT === "kg" ? `${Math.round(currentWeightKg)} kg` : `${toLb(currentWeightKg)} lb`;
+    DISPLAY_UNIT === "kg"
+      ? `${currentWeightKg} ${kgUnit}`
+      : `${toLb(currentWeightKg)} ${lbUnit}`;
+
 
   const hasStart = profile.startingWeightKg != null;
-  const deltaFromStartLb = hasStart ? Math.round(toLb(currentWeightKg - (profile.startingWeightKg as number))) : undefined;
+  const deltaFromStartLb = hasStart ? (toLb(currentWeightKg - (profile.startingWeightKg as number))) : undefined;
   const lostOrGainedLabel =
     deltaFromStartLb != null
       ? deltaFromStartLb < 0
@@ -339,7 +348,7 @@ export default function Dashboard() {
             <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
               <Text style={[styles.tileLabel, { color: TEXT }]}>{lostOrGainedLabel}</Text>
               <Text style={[styles.tileValue, { color: TEXT }]}>
-                {deltaFromStartLb! > 0 ? `+${deltaFromStartLb}` : `${deltaFromStartLb}`} lb
+                {deltaFromStartLb! > 0 ? `+${deltaFromStartLb}` : `${deltaFromStartLb}`} lbs
               </Text>
               <Text style={styles.tileSub}>vs start</Text>
             </View>

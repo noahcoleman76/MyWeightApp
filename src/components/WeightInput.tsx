@@ -46,29 +46,60 @@ export default function CurrentWeight({
 
   const [val, setVal] = useState("");
   const [focused, setFocused] = useState(false);
-  const [hasBlurred, setHasBlurred] = useState(false); // <-- controls when to show error
+  const [hasBlurred, setHasBlurred] = useState(false);
 
-  // Digits only, hard-limit to 3 chars
+  /**
+   * Allow:
+   * - up to 3 digits before the decimal
+   * - optional '.' or ',' with up to 1 digit after
+   * Examples: "150", "150.2"
+   * While typing, allow a trailing '.' (e.g., "150.") so the user can add the decimal digit.
+   */
   const handleChange = (t: string) => {
-    const digitsOnly = t.replace(/\D/g, "").slice(0, 3);
-    setVal(digitsOnly);
+    // normalize comma to dot and strip invalid chars (digits or '.')
+    let s = t.replace(",", ".").replace(/[^0-9.]/g, "");
+
+    // keep only the first dot
+    const dotIdx = s.indexOf(".");
+    if (dotIdx !== -1) {
+      s = s.slice(0, dotIdx + 1) + s.slice(dotIdx + 1).replace(/\./g, "");
+    }
+
+    // split parts
+    let [int = "", dec = undefined] = s.split(".");
+
+    // limit integer part to 3 digits
+    int = int.slice(0, 3);
+
+    // limit decimals to 1 digit if present
+    if (typeof dec === "string") dec = dec.replace(/\D/g, "").slice(0, 1);
+
+    // rebuild string; preserve a trailing '.' while typing
+    let out = int;
+    if (dotIdx !== -1) {
+      out += ".";
+      if (dec !== undefined) out += dec;
+    }
+
+    setVal(out);
   };
 
   const parsed = useMemo(() => {
-    const n = Number(val);
-    return Number.isFinite(n) && val.trim() !== "" ? n : NaN;
+    // Treat "" or just "." as NaN
+    if (val.trim() === "" || val === ".") return NaN;
+    // Allow "150." => parse as 150
+    const n = Number(val.endsWith(".") ? val.slice(0, -1) : val);
+    return Number.isFinite(n) ? n : NaN;
   }, [val]);
 
-  const hasValue = val.trim().length > 0;
+  const hasValue = val.trim().length > 0 && val !== ".";
   const inRange = hasValue && !Number.isNaN(parsed) && parsed >= MIN && parsed <= MAX;
   const isValid = inRange;
 
-  // Only show error after the first blur AND if there's a value AND it's out of range
   const showRangeHint = showHelperText && hasBlurred && hasValue && !inRange;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
-      {/* Tap anywhere outside to dismiss keyboard */}
       <Pressable style={styles.dismissArea} onPress={() => Keyboard.dismiss()}>
         <View style={styles.container}>
           <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
@@ -93,20 +124,23 @@ export default function CurrentWeight({
               onChangeText={handleChange}
               onFocus={() => {
                 setFocused(true);
-                setHasBlurred(false); // hide error while editing again
+                setHasBlurred(false);
               }}
               onBlur={() => {
                 setFocused(false);
-                setHasBlurred(true); // enable error visibility on subsequent render
-                Keyboard.dismiss();   // hide keypad when leaving field
+                setHasBlurred(true);
+                Keyboard.dismiss();
               }}
-              keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
+              // iOS decimal keypad; Android falls back to numeric ('.' still allowed by handler)
+              keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
+              inputMode="decimal"
               autoCorrect={false}
               autoCapitalize="none"
               spellCheck={false}
               selectionColor={ACCENT}
               textAlign="center"
-              maxLength={3}
+              // 999.9 is 5 chars; allow one decimal while typing
+              maxLength={5}
               placeholder={placeholder ?? `${MIN}-${MAX}`}
               placeholderTextColor={PLACEHOLDER}
               style={[styles.inputText, { color: TEXT }]}
@@ -122,7 +156,7 @@ export default function CurrentWeight({
 
           {showRangeHint ? (
             <Text style={[styles.helper, { color: "#ef4444" }]}>
-              Enter a number between {MIN} and {MAX}.
+              Enter {MIN}–{MAX} (one decimal allowed).
             </Text>
           ) : null}
 

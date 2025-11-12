@@ -5,11 +5,13 @@ import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, Tex
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeDailyTarget, kgToLb, lbToKg } from "../../lib/calorieMath";
 import { useGoalStore } from "../../state/goalStore";
+import { useLogStore } from "../../state/logStore"; // ✅ NEW
 import { useProfileStore } from "../../state/profileStore";
 
 export default function Goals() {
   const { profile, setActivity, setUnits, setStartingWeightKg } = useProfileStore();
   const { mode, goalWeightKg, targetDateISO, setMode, setGoalWeightKg, setTargetDateISO } = useGoalStore();
+  const { logs } = useLogStore(); // ✅ NEW
 
   const [hUnits, setHUnits] = useState(profile.heightUnit ?? "in");
   const [wUnits, setWUnits] = useState(profile.weightUnit ?? "lb");
@@ -39,37 +41,56 @@ export default function Goals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wUnits]);
 
+  /* ===== Match Dashboard "current weight" resolution ===== */
+  const latestLogged = useMemo(() => {
+    const withWt = logs.filter((l) => typeof l.weightKg === "number");
+    if (!withWt.length) return { kg: undefined as number | undefined, iso: undefined as string | undefined };
+    withWt.sort((a, b) => (a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1));
+    return { kg: withWt[0]!.weightKg as number, iso: withWt[0]!.dateISO as string };
+  }, [logs]);
+
+  const currentWeightKg =
+    (latestLogged.kg != null ? latestLogged.kg : undefined) ??
+    (profile.startingWeightKg ?? profile.currentWeightKg ?? 0); // ✅ use same fallback as Dashboard
+
   const { maintenance, target } = useMemo(
     () =>
       computeDailyTarget({
         sex: profile.gender,
         age: profile.age,
         heightCm: profile.height,
-        currentWeightKg: profile.currentWeightKg,
+        currentWeightKg,                // ✅ use derived current weight
         activity: profile.activityLevel,
         mode,
         goalWeightKg,
         targetDateISO,
       }),
-    [profile, mode, goalWeightKg, targetDateISO]
+    [profile, mode, goalWeightKg, targetDateISO, currentWeightKg]
   );
 
   // Derived metrics for tiles
   const isMaintain = mode === "maintain";
-  const currentKg =
-    profile.currentWeightKg ?? profile.startingWeightKg ?? 0;
 
   const weightLeftDisplay =
     !isMaintain && goalWeightKg != null
-      ? `${Math.max(0, Math.round(Math.abs((wUnits === "kg" ? currentKg - goalWeightKg : kgToLb(currentKg - goalWeightKg)) as number)))} ${unitSuffix}`
+      ? `${Math.max(
+          0,
+          Math.round(
+            Math.abs(
+              (wUnits === "kg"
+                ? currentWeightKg - goalWeightKg
+                : kgToLb(currentWeightKg - goalWeightKg)) as number
+            )
+          )
+        )} ${unitSuffix}`
       : undefined;
 
   const hasStart = profile.startingWeightKg != null;
   const deltaFromStart =
-    hasStart && currentKg
+    hasStart && currentWeightKg != null
       ? (wUnits === "kg"
-        ? Math.round(currentKg - (profile.startingWeightKg as number))
-        : Math.round(kgToLb(currentKg - (profile.startingWeightKg as number))))
+        ? Math.round(currentWeightKg - (profile.startingWeightKg as number))
+        : Math.round(kgToLb(currentWeightKg - (profile.startingWeightKg as number))))
       : undefined;
 
   const hasEndDate = !!targetDateISO;
@@ -87,7 +108,6 @@ export default function Goals() {
   const prettyEndDate = targetDateISO ? dayjs(targetDateISO).format("MMMM D, YYYY") : "";
   const openPicker = () => { Keyboard.dismiss(); setShowPicker(true); };
   const closePicker = () => setShowPicker(false);
-
 
   // Theme tokens (keep in sync with Dashboard)
   const ACCENT = "#5eada8";
@@ -116,9 +136,6 @@ export default function Goals() {
           <Tile title="Maintenance" value={kcal(maintenance)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
           <Tile title="Target" value={kcal(target)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
 
-          <Tile title="Current Weight" value={toDisplay(profile.currentWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
-          <Tile title="Starting Weight" value={toDisplay(profile.startingWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
-
           {!isMaintain && weightLeftDisplay != null && (
             <Tile title="Weight Left" value={weightLeftDisplay} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
           )}
@@ -144,7 +161,6 @@ export default function Goals() {
               TEXT={TEXT}
             />
           )}
-
         </View>
 
         {/* ===== MIDDLE: Mode, Activity, Units ===== */}
@@ -287,7 +303,6 @@ export default function Goals() {
                         onChange={(_e, date) => {
                           if (date && dayjs(date).isAfter(today, "day")) {
                             setTempDate(date);
-                            // On iOS inline we won’t auto-close; on Android calendar, we’ll close after select:
                             if (Platform.OS === "android") setShowPicker(false);
                           }
                         }}
@@ -298,7 +313,6 @@ export default function Goals() {
 
                     {/* Actions */}
                     <View style={modalStyles.actions}>
-                      {/* Clear / choose later */}
                       <TouchableOpacity
                         onPress={() => {
                           setTempDate(null);
@@ -310,7 +324,6 @@ export default function Goals() {
                         <Text style={modalStyles.linkText}>Choose date later</Text>
                       </TouchableOpacity>
 
-                      {/* Save */}
                       <Pressable
                         onPress={() => {
                           if (tempDate) {
@@ -329,7 +342,6 @@ export default function Goals() {
                   </Pressable>
                 </Pressable>
               </Modal>
-
             </>
           )}
         </Pressable>
