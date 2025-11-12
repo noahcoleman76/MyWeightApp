@@ -1,9 +1,11 @@
+// app/screens/Dashboard/Index.tsx
 import { useAppStore } from "@/src/state/appStore";
 import { useSubscriptionStore } from "@/src/state/subscriptionStore";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import dayjs from "dayjs";
-import React, { useMemo } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import React, { useEffect, useMemo } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   VictoryArea,
@@ -11,20 +13,32 @@ import {
   VictoryChart,
   VictoryLine,
   VictoryScatter,
+  VictoryTooltip,
+  VictoryVoronoiContainer,
 } from "victory-native";
 import { computeDailyTarget, kgToLb } from "../../lib/calorieMath";
+import { getItem, setItem } from "../../lib/mmkv";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
 
+dayjs.extend(customParseFormat);
+
+// ---------- helpers
+const parseISO = (iso?: string) => dayjs(iso, "YYYY-MM-DD", true); // strict YYYY-MM-DD
 const toLb = (kg: number) => Math.round(kgToLb(kg) * 10) / 10;
+
+// persistent keys
+const START_DAY_KEY = "start_day_iso";              // set during onboarding CurrentWeight
+const FIRST_SEEN_KEY = "first_dashboard_seen_iso";  // legacy / fallback
 
 export default function Dashboard() {
   const nav = useNavigation<any>();
   const { colors } = useTheme();
+
   const { profile } = useProfileStore();
   const { goalWeightKg, targetDateISO, dailyTargetOverride, mode } = useGoalStore();
-  const { logs, dailyTotals, streak } = useLogStore();
+  const { logs, streak } = useLogStore();
 
   const ACCENT = colors?.primary ?? "#5eada8";
   const TEXT = colors?.text ?? "#0f172a";
@@ -32,13 +46,151 @@ export default function Dashboard() {
   const CARD_BG = "#ffffff";
   const BORDER = "#eef2f7";
 
-  // ---- latest weight + latest log date
+  // ---------- layout
+  const { width: winW } = useWindowDimensions();
+  const SCREEN_MARGIN = 20; // styles.full marginHorizontal
+  const CARD_PADDING = 16;  // styles.card padding
+  const WRAP_PADDING = 8;   // styles.chartWrap paddingHorizontal
+  const chartWidth = Math.max(320, winW - (SCREEN_MARGIN * 2) - (CARD_PADDING * 2) - (WRAP_PADDING * 2));
+
+  // ---------- units
+  const DISPLAY_UNIT: "kg" | "lb" = profile.weightUnit === "kg" ? "kg" : "lb";
+  const toDisplay = (kg: number) => (DISPLAY_UNIT === "kg" ? Math.round(kg * 10) / 10 : Math.round(kgToLb(kg) * 10) / 10);
+
+  // ---------- start-day resolution (start_day_iso -> first_seen -> today)
+  const chartStartISO: string = useMemo(() => {
+    const rawStart = getItem(START_DAY_KEY);
+    const normStart = parseISO(typeof rawStart === "string" ? rawStart.slice(0, 10) : undefined);
+    if (normStart.isValid()) return normStart.format("YYYY-MM-DD");
+
+    const rawSeen = getItem(FIRST_SEEN_KEY);
+    const normSeen = parseISO(typeof rawSeen === "string" ? rawSeen.slice(0, 10) : undefined);
+    if (normSeen.isValid()) return normSeen.format("YYYY-MM-DD");
+
+    const today = dayjs().format("YYYY-MM-DD");
+    setItem(FIRST_SEEN_KEY, today);
+    return today;
+  }, []);
+
+  // also make sure FIRST_SEEN_KEY is set for future runs (don’t override start_day_iso if present)
+  useEffect(() => {
+    const rawSeen = getItem(FIRST_SEEN_KEY);
+    const ok = typeof rawSeen === "string" && parseISO(rawSeen.slice(0, 10)).isValid();
+    if (!ok) setItem(FIRST_SEEN_KEY, dayjs().format("YYYY-MM-DD"));
+  }, []);
+
+  // ---------- earliest valid log date
+  const earliestLogISO: string | undefined = useMemo(() => {
+    const withWt = logs.filter((l) => typeof l.weightKg === "number" && parseISO(l.dateISO).isValid());
+    if (!withWt.length) return undefined;
+    withWt.sort((a, b) => (a.dateISO === b.dateISO ? (a.id > b.id ? 1 : -1) : a.dateISO > b.dateISO ? 1 : -1));
+    return withWt[0].dateISO;
+  }, [logs]);
+
+  // ---------- choose anchor start (earliest of chartStartISO vs earliestLogISO)
+  const anchorStartISO: string = useMemo(() => {
+    const a = parseISO(chartStartISO);
+    const b = parseISO(earliestLogISO);
+    const aValid = a.isValid();
+    const bValid = b.isValid();
+    if (aValid && bValid) return a.isBefore(b) ? a.format("YYYY-MM-DD") : b.format("YYYY-MM-DD");
+    if (aValid) return a.format("YYYY-MM-DD");
+    if (bValid) return b.format("YYYY-MM-DD");
+    // should never happen because chartStartISO always falls back to today,
+    // but keep a defensive return:
+    return dayjs().format("YYYY-MM-DD");
+  }, [chartStartISO, earliestLogISO]);
+
+  // ---------- build series (guarantee at least two x-points)
+  const baseSeries = useMemo(() => {
+    const weightLogsAsc = logs
+      .filter((l) => typeof l.weightKg === "number" && parseISO(l.dateISO).isValid())
+      .sort((a, b) => (a.dateISO === b.dateISO ? (a.id > b.id ? 1 : -1) : a.dateISO > b.dateISO ? 1 : -1));
+
+    const pts: { x: Date; y: number }[] = [];
+
+    // anchor Y: startingWeightKg -> earliest log weight -> current profile weight
+    const earliestWtKg = weightLogsAsc.length ? (weightLogsAsc[0].weightKg as number) : undefined;
+    const anchorYKg =
+      typeof profile.startingWeightKg === "number"
+        ? profile.startingWeightKg
+        : earliestWtKg ?? profile.currentWeightKg ?? undefined;
+
+    const startD = parseISO(anchorStartISO);
+    if (startD.isValid() && typeof anchorYKg === "number") {
+      // local midnight avoids TZ underflow
+      pts.push({ x: startD.startOf("day").toDate(), y: anchorYKg });
+    }
+
+    for (const l of weightLogsAsc) {
+      const d = parseISO(l.dateISO);
+      if (d.isValid()) pts.push({ x: d.toDate(), y: l.weightKg as number });
+    }
+
+    // if only anchor exists, add a 2nd point at end-of-day today to create a non-zero span
+    if (pts.length === 1) {
+      pts.push({ x: dayjs().endOf("day").toDate(), y: pts[0].y });
+    }
+
+    // dedupe per calendar day + guard invalid dates
+    const byDay = new Map<string, { x: Date; y: number }>();
+    for (const p of pts) {
+      if (p.x instanceof Date && !Number.isNaN(p.x.getTime()) && Number.isFinite(p.y)) {
+        byDay.set(dayjs(p.x).format("YYYY-MM-DD"), p);
+      }
+    }
+
+    return Array.from(byDay.values())
+      .sort((a, b) => +a.x - +b.x)
+      .map((p) => ({ x: p.x, y: toDisplay(p.y) }));
+  }, [logs, profile.startingWeightKg, profile.currentWeightKg, profile.weightUnit, anchorStartISO]);
+
+  // ---------- x-domain (pin it so Victory never drifts)
+  const domainX = useMemo<[Date, Date] | undefined>(() => {
+    if (!baseSeries.length) return undefined;
+    const start = baseSeries[0].x;
+    const last = baseSeries[baseSeries.length - 1].x;
+    // if same moment, pad to +1 day
+    if (+last - +start < 60 * 60 * 1000) return [start, dayjs(start).add(1, "day").toDate()];
+    return [start, last];
+  }, [baseSeries]);
+
+  // ---------- ticks
+  const { xTicks, xTickFormat } = useMemo(() => {
+    if (!domainX) return { xTicks: [], xTickFormat: (_: Date) => "" };
+    const [s, e] = domainX.map((d) => dayjs(d)) as [dayjs.Dayjs, dayjs.Dayjs];
+    const spanDays = e.diff(s, "day");
+    const ticks: Date[] = [];
+
+    if (spanDays <= 40) {
+      let cur = s.startOf("week");
+      while (cur.isBefore(e.add(1, "day"))) { ticks.push(cur.toDate()); cur = cur.add(7, "day"); }
+      return { xTicks: ticks, xTickFormat: (d: Date) => dayjs(d).format("MMM D") };
+    }
+    let cur = s.startOf("month");
+    while (cur.isBefore(e.add(1, "month"))) { ticks.push(cur.toDate()); cur = cur.add(1, "month"); }
+    return { xTicks: ticks, xTickFormat: (d: Date) => dayjs(d).format("MMM 'YY") };
+  }, [domainX]);
+
+  // ---------- y-domain
+  const domainY = useMemo<[number, number] | undefined>(() => {
+    if (!baseSeries.length) return undefined;
+    let min = Math.min(...baseSeries.map((p) => p.y));
+    let max = Math.max(...baseSeries.map((p) => p.y));
+    if (min === max) { min -= 1; max += 1; }
+    const pad = Math.max(0.5, (max - min) * 0.1);
+    return [Math.floor(min - pad), Math.ceil(max + pad)];
+  }, [baseSeries]);
+
+  // dashed start weight reference
+  const startRefY =
+    typeof profile.startingWeightKg === "number" ? toDisplay(profile.startingWeightKg) : undefined;
+
+  // ---------- latest/current weight for tiles & target calc
   const latestLogged = useMemo(() => {
     const withWt = logs.filter((l) => typeof l.weightKg === "number");
     if (!withWt.length) return { kg: undefined as number | undefined, iso: undefined as string | undefined };
-    withWt.sort((a, b) =>
-      a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1
-    );
+    withWt.sort((a, b) => (a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1));
     return { kg: withWt[0]!.weightKg as number, iso: withWt[0]!.dateISO as string };
   }, [logs]);
 
@@ -46,7 +198,7 @@ export default function Dashboard() {
     (latestLogged.kg != null ? latestLogged.kg : undefined) ??
     (profile.startingWeightKg ?? profile.currentWeightKg);
 
-  // ---- calories + maintenance (needed for estimate)
+  // ---------- calories & maintenance
   const { maintenance, target: computedTarget } = useMemo(
     () =>
       computeDailyTarget({
@@ -63,7 +215,7 @@ export default function Dashboard() {
   );
   const effectiveTarget = dailyTargetOverride ?? computedTarget;
 
-  // ---- estimate days to goal (hide in maintain)
+  // ---------- estimate days to goal
   const isMaintain = mode === "maintain";
   const estimate = useMemo(() => {
     if (isMaintain || !goalWeightKg) return undefined as { date: string; days: number } | undefined;
@@ -92,21 +244,14 @@ export default function Dashboard() {
     return { date, days: rounded };
   }, [isMaintain, goalWeightKg, currentWeightKg, maintenance, effectiveTarget, latestLogged.iso]);
 
-  // ---- weights used in tiles
+  // ---------- tiles
   const startingWDisplay =
     profile.startingWeightKg != null
-      ? (profile.weightUnit === "kg"
-        ? `${Math.round(profile.startingWeightKg)} kg`
-        : `${Math.round(kgToLb(profile.startingWeightKg))} lb`)
+      ? (DISPLAY_UNIT === "kg" ? `${Math.round(profile.startingWeightKg)} kg` : `${Math.round(kgToLb(profile.startingWeightKg))} lb`)
       : "—";
 
   const currentWDisplay =
-    profile.weightUnit === "kg" ? `${Math.round(currentWeightKg)} kg` : `${toLb(currentWeightKg)} lb`;
-
-  const lbsLeft =
-    !isMaintain && goalWeightKg != null
-      ? Math.max(0, Math.round(Math.abs(toLb(currentWeightKg - goalWeightKg))))
-      : undefined;
+    DISPLAY_UNIT === "kg" ? `${Math.round(currentWeightKg)} kg` : `${toLb(currentWeightKg)} lb`;
 
   const hasStart = profile.startingWeightKg != null;
   const deltaFromStartLb = hasStart ? Math.round(toLb(currentWeightKg - (profile.startingWeightKg as number))) : undefined;
@@ -119,26 +264,7 @@ export default function Dashboard() {
           : "Weight Change"
       : undefined;
 
-  // ---- chart series (7 days, carry forward)
-  const last7 = [...Array(7)].map((_, i) => dayjs().subtract(6 - i, "day"));
-  const byDate = new Map<string, number>();
-  logs.filter(l => typeof l.weightKg === "number").forEach(l => byDate.set(l.dateISO, l.weightKg!));
-  let carry = currentWeightKg;
-  const weightSeries = last7.map((d) => {
-    const iso = d.format("YYYY-MM-DD");
-    if (byDate.has(iso)) carry = byDate.get(iso)!;
-    return { x: d.format("ddd"), y: toLb(carry) };
-  });
-
-  const ys = weightSeries.map(p => p.y);
-  const hasData = ys.length > 0;
-  const yMin = hasData ? Math.min(...ys) : 0;
-  const yMax = hasData ? Math.max(...ys) : 1;
-  const pad = Math.max(0.5, (yMax - yMin) * 0.2);
-  const domainY: [number, number] = [Math.floor(yMin - pad), Math.ceil(yMax + pad)];
-  const xTicks = [weightSeries[0]?.x, weightSeries[2]?.x, weightSeries[4]?.x, weightSeries[6]?.x].filter(Boolean);
-
-  // Reset all data for testing, start at onboarding
+  // ---------- reset (testing only)
   const resetProfile = useProfileStore((s) => s.reset);
   const resetGoal = useGoalStore((s) => s.reset);
   const resetLogs = useLogStore((s) => s.reset);
@@ -164,64 +290,51 @@ export default function Dashboard() {
     ]);
   };
 
+  // ---------- render
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Title (centered) */}
+        {/* Title */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: TEXT, textAlign: "center" }]}>Dashboard</Text>
         </View>
 
-        {/* Row 1: Streak (full width) */}
+        {/* Streak */}
         <View style={[styles.card, styles.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
           <View style={styles.streakRow}>
             <Text style={[styles.flame, { color: ACCENT }]}>🔥</Text>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.streakValue, { color: TEXT }]}>{streak()} days</Text>
-              <Text style={styles.streakLabel}>Login Streak</Text>
+              <Text style={[styles.streakValue, { color: TEXT }]}>{streak()} {streak() === 1 ? "day" : "days"}</Text>
+              <Text style={styles.streakLabel}>Log Streak</Text>
             </View>
           </View>
         </View>
 
-        {/* Tiles grid (wraps into 2 per row) */}
+        {/* Tiles */}
         <View style={styles.tilesWrap}>
-          {/* Target Calories */}
           <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
             <Text style={[styles.tileLabel, { color: TEXT }]}>Target Calories</Text>
-            <Text style={[styles.tileValue, { color: TEXT }]}>{Math.round(effectiveTarget)}</Text>
+            <Text style={[styles.tileValue, { color: TEXT }]}>{Math.round(dailyTargetOverride ?? computedTarget)}</Text>
             <Text style={styles.tileSub}>Today</Text>
           </View>
 
-          {/* Weight Left (if applicable) */}
-          {/* {lbsLeft != null && (
-            <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
-              <Text style={[styles.tileLabel, { color: TEXT }]}>Weight Left</Text>
-              <Text style={[styles.tileValue, { color: TEXT }]}>{lbsLeft} lb</Text>
-              <Text style={styles.tileSub}>{goalWeightKg ? `Goal: ${Math.round(kgToLb(goalWeightKg))} lb` : ""}</Text>
-            </View>
-          )} */}
-
-          {/* Days to Go + estimated/planned date */}
-          {!isMaintain && (
+          {mode !== "maintain" && (
             <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
               <Text style={[styles.tileLabel, { color: TEXT }]}>Days to Go</Text>
               <Text style={[styles.tileValue, { color: TEXT }]}>
                 {estimate?.days ?? (targetDateISO ? Math.max(0, dayjs(targetDateISO).diff(dayjs(), "day")) : "—")}
               </Text>
               <Text style={styles.tileSub}>
-                {estimate?.date ??
-                  (targetDateISO ? dayjs(targetDateISO).format("MMM D, YYYY") : "No date set")}
+                {estimate?.date ?? (targetDateISO ? dayjs(targetDateISO).format("MMM D, YYYY") : "No date set")}
               </Text>
             </View>
           )}
 
-          {/* Starting Weight (always) */}
           <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
             <Text style={[styles.tileLabel, { color: TEXT }]}>Starting Weight</Text>
             <Text style={[styles.tileValue, { color: TEXT }]}>{startingWDisplay}</Text>
           </View>
 
-          {/* Lost/Gained (if start exists) */}
           {lostOrGainedLabel && (
             <View style={[styles.card, styles.tileHalf, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
               <Text style={[styles.tileLabel, { color: TEXT }]}>{lostOrGainedLabel}</Text>
@@ -233,34 +346,86 @@ export default function Dashboard() {
           )}
         </View>
 
-        {/* Current Weight + Chart (full width) */}
-        <View style={[styles.card, styles.full, { backgroundColor: CARD_BG, borderColor: BORDER, overflow: "hidden" }]}>
+        {/* Current Weight + Chart */}
+        <View style={[styles.card, styles.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
           <Text style={[styles.sectionTitle, { color: TEXT }]}>Current Weight</Text>
           <Text style={[styles.currentValue, { color: TEXT }]}>{currentWDisplay}</Text>
 
           <View style={styles.chartWrap}>
             <VictoryChart
               padding={{ top: 10, bottom: 36, left: 56, right: 24 }}
-              domain={{ y: domainY }}
-              height={220}
-              width={undefined as unknown as number}
+              domain={{ x: domainX, y: domainY }}
+              height={240}
+              width={chartWidth}
+              containerComponent={
+                <VictoryVoronoiContainer
+                  voronoiDimension="x"
+                  // ONLY allow tooltips from the scatter series:
+                  voronoiBlacklist={["seriesArea", "seriesLine", "seriesRef"]}
+                />
+              }
             >
               <VictoryAxis
                 tickValues={xTicks as any}
-                style={{ tickLabels: { fontSize: 12, fill: "#6b7280" }, axis: { stroke: "transparent" }, ticks: { stroke: "transparent" } }}
+                tickFormat={xTickFormat as any}
+                style={{
+                  tickLabels: { fontSize: 12, fill: "#6b7280" },
+                  axis: { stroke: "transparent" },
+                  ticks: { stroke: "transparent" },
+                }}
               />
               <VictoryAxis
                 dependentAxis
-                style={{ tickLabels: { fontSize: 12, fill: "#6b7280" }, grid: { stroke: "#e5e7eb" }, axis: { stroke: "transparent" } }}
+                style={{
+                  tickLabels: { fontSize: 12, fill: "#6b7280" },
+                  grid: { stroke: "#e5e7eb" },
+                  axis: { stroke: "transparent" },
+                }}
               />
-              <VictoryArea data={weightSeries} style={{ data: { fill: ACCENT + "22", strokeWidth: 0 } }} />
-              <VictoryLine data={weightSeries} interpolation="monotoneX" style={{ data: { stroke: ACCENT, strokeWidth: 3 } }} />
-              <VictoryScatter data={weightSeries} size={4} style={{ data: { fill: ACCENT } }} />
+
+              <VictoryArea
+                name="seriesArea"
+                data={baseSeries}
+                style={{ data: { fill: ACCENT + "22", strokeWidth: 0 } }}
+              />
+
+              <VictoryLine
+                name="seriesLine"
+                data={baseSeries}
+                interpolation="monotoneX"
+                style={{ data: { stroke: ACCENT, strokeWidth: 3 } }}
+              />
+
+              {/* Tooltips ONLY here */}
+              <VictoryScatter
+                name="seriesPts"
+                data={baseSeries}
+                size={3.5}
+                style={{ data: { fill: ACCENT } }}
+                labels={({ datum }: any) =>
+                  `${dayjs(datum.x).format("MMM D, YYYY")}\n${datum.y} ${DISPLAY_UNIT}`
+                }
+                labelComponent={
+                  <VictoryTooltip
+                    cornerRadius={6}
+                    flyoutPadding={{ top: 8, bottom: 8, left: 10, right: 10 }}
+                    style={{ fontSize: 12 }}
+                  />
+                }
+              />
+
+              {typeof startRefY === "number" && (
+                <VictoryLine
+                  name="seriesRef"
+                  y={() => startRefY}
+                  style={{ data: { stroke: "#9ca3af", strokeDasharray: "6,6", strokeWidth: 2 } }}
+                />
+              )}
             </VictoryChart>
           </View>
         </View>
 
-        {/* Add Log CTA (centered pill) */}
+        {/* CTA */}
         <View style={styles.ctaWrap}>
           <Pressable style={[styles.addBtn, { backgroundColor: ACCENT }]} onPress={() => nav.navigate("Log")}>
             <Text style={styles.addBtnText}>Add Log</Text>
@@ -268,10 +433,7 @@ export default function Dashboard() {
           <Pressable
             onPress={handleResetAll}
             style={({ pressed }) => [
-              {
-                backgroundColor: "#ef4444",
-                transform: [{ translateY: pressed ? 1 : 0 }],
-              },
+              { backgroundColor: "#ef4444", transform: [{ translateY: pressed ? 1 : 0 }] },
             ]}
           >
             <Text>Reset all data (testing)</Text>
@@ -282,6 +444,7 @@ export default function Dashboard() {
   );
 }
 
+// ---------- styles
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingBottom: 28 },
@@ -306,7 +469,6 @@ const styles = StyleSheet.create({
   streakValue: { fontSize: 24, fontWeight: "800" },
   streakLabel: { fontSize: 14, color: "#6b7280", marginTop: 4 },
 
-  // Grid
   tilesWrap: {
     paddingHorizontal: 20,
     marginBottom: 8,
@@ -349,10 +511,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
   },
-  addBtnText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
+  addBtnText: { color: "#fff", fontSize: 18, fontWeight: "700", letterSpacing: 0.3 },
 });
