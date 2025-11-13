@@ -1,65 +1,118 @@
+// app/screens/Goals/Index.tsx
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 import React, { useEffect, useMemo, useState } from "react";
-import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeDailyTarget, kgToLb, lbToKg } from "../../lib/calorieMath";
 import { useGoalStore } from "../../state/goalStore";
-import { useLogStore } from "../../state/logStore"; // ✅ NEW
+import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
 
 export default function Goals() {
   const { profile, setActivity, setUnits, setStartingWeightKg } = useProfileStore();
   const { mode, goalWeightKg, targetDateISO, setMode, setGoalWeightKg, setTargetDateISO } = useGoalStore();
-  const { logs } = useLogStore(); // ✅ NEW
+  const { logs } = useLogStore();
 
+  // ===== UNITS / DISPLAY HELPERS =====
   const [hUnits, setHUnits] = useState(profile.heightUnit ?? "in");
   const [wUnits, setWUnits] = useState(profile.weightUnit ?? "lb");
-
-  // helpers for unit display
-  const toDisplay = (kg?: number | null) => {
-    if (kg == null) return "—";
-    return wUnits === "kg" ? `${Math.round(kg)} kg` : `${Math.round(kgToLb(kg))} lb`;
-  };
-  const nToDisplay = (kg?: number | null) => {
-    if (kg == null) return undefined;
-    return wUnits === "kg" ? Math.round(kg) : Math.round(kgToLb(kg));
-  };
   const unitSuffix = wUnits === "kg" ? "kg" : "lb";
 
-  const [goalW, setGoalW] = useState(
-    goalWeightKg ? String(nToDisplay(goalWeightKg)) : ""
-  );
-  const [startW, setStartW] = useState(
-    profile.startingWeightKg != null ? String(nToDisplay(profile.startingWeightKg)) : ""
-  );
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  // show 1 decimal only if needed (e.g., 250 -> "250", 250.2 -> "250.2")
+  const smart1 = (n: number) => {
+    const r = round1(n);
+    return Number.isInteger(r) ? String(r) : r.toFixed(1);
+  };
 
-  // Sync text fields when weight units toggle
+  const fmtWeight = (kg?: number | null) => {
+    if (kg == null) return "—";
+    const v = wUnits === "kg" ? kg : kgToLb(kg);
+    return `${smart1(v)} ${unitSuffix}`;
+  };
+
+  // used only to prefill the text inputs from store values
+  const numberForInput = (kg?: number | null) => {
+    if (kg == null) return "";
+    const v = wUnits === "kg" ? kg : kgToLb(kg);
+    return smart1(v);
+  };
+
+  // ===== INPUT STATE =====
+  const [goalW, setGoalW] = useState(numberForInput(goalWeightKg));
+  const [startW, setStartW] = useState(numberForInput(profile.startingWeightKg));
+
+  // last saved valid values (for optional revert-to-valid behavior if you want)
+  const [lastValidGoalW, setLastValidGoalW] = useState(numberForInput(goalWeightKg));
+  const [lastValidStartW, setLastValidStartW] = useState(numberForInput(profile.startingWeightKg));
+
+  // error flags
+  const [goalErr, setGoalErr] = useState<string | null>(null);
+  const [startErr, setStartErr] = useState<string | null>(null);
+
+  // Re-sync inputs when units or store values change
   useEffect(() => {
-    if (goalWeightKg != null) setGoalW(String(nToDisplay(goalWeightKg)));
-    if (profile.startingWeightKg != null) setStartW(String(nToDisplay(profile.startingWeightKg)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wUnits]);
+    const g = numberForInput(goalWeightKg);
+    const s = numberForInput(profile.startingWeightKg);
+    setGoalW(g);
+    setLastValidGoalW(g);
+    setGoalErr(null);
 
-  /* ===== Match Dashboard "current weight" resolution ===== */
+    setStartW(s);
+    setLastValidStartW(s);
+    setStartErr(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wUnits, goalWeightKg, profile.startingWeightKg]);
+
+  // ===== VALIDATION HELPERS =====
+  // Partial while-typing: up to 3 digits, optional dot + 1 decimal, or empty
+  const partialOK = (s: string) => /^\d{0,3}(\.\d?)?$/.test(s);
+
+  // Final on blur: 2–3 digits, optional 1 decimal, and in range 50–999
+  const finalOK = (s: string) => /^\d{2,3}(\.\d)?$/.test(s) && Number(s) >= 50 && Number(s) <= 999;
+
+  const toKgFromInput = (s: string) => {
+    const n = Number(s);
+    return wUnits === "lb" ? lbToKg(n) : n;
+  };
+
+  const applyStartWeight = (s: string) => setStartingWeightKg(toKgFromInput(s));
+  const applyGoalWeight = (s: string) => setGoalWeightKg(toKgFromInput(s));
+
+  // ===== CURRENT WEIGHT RESOLUTION (match Dashboard) =====
   const latestLogged = useMemo(() => {
     const withWt = logs.filter((l) => typeof l.weightKg === "number");
     if (!withWt.length) return { kg: undefined as number | undefined, iso: undefined as string | undefined };
-    withWt.sort((a, b) => (a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1));
+    withWt.sort((a, b) =>
+      a.dateISO === b.dateISO ? (a.id < b.id ? 1 : -1) : a.dateISO < b.dateISO ? 1 : -1
+    );
     return { kg: withWt[0]!.weightKg as number, iso: withWt[0]!.dateISO as string };
   }, [logs]);
 
   const currentWeightKg =
     (latestLogged.kg != null ? latestLogged.kg : undefined) ??
-    (profile.startingWeightKg ?? profile.currentWeightKg ?? 0); // ✅ use same fallback as Dashboard
+    (profile.startingWeightKg ?? profile.currentWeightKg ?? 0);
 
+  // ===== CALORIE MATH =====
   const { maintenance, target } = useMemo(
     () =>
       computeDailyTarget({
         sex: profile.gender,
         age: profile.age,
         heightCm: profile.height,
-        currentWeightKg,                // ✅ use derived current weight
+        currentWeightKg,
         activity: profile.activityLevel,
         mode,
         goalWeightKg,
@@ -68,55 +121,58 @@ export default function Goals() {
     [profile, mode, goalWeightKg, targetDateISO, currentWeightKg]
   );
 
-  // Derived metrics for tiles
+  // ===== DERIVED TILE METRICS (smart 1-decimal) =====
   const isMaintain = mode === "maintain";
 
   const weightLeftDisplay =
     !isMaintain && goalWeightKg != null
-      ? `${Math.max(
-          0,
-          Math.round(
-            Math.abs(
-              (wUnits === "kg"
-                ? currentWeightKg - goalWeightKg
-                : kgToLb(currentWeightKg - goalWeightKg)) as number
-            )
-          )
-        )} ${unitSuffix}`
+      ? (() => {
+        const diffKg = currentWeightKg - goalWeightKg;
+        const left = wUnits === "kg" ? Math.abs(diffKg) : Math.abs(kgToLb(diffKg));
+        return `${smart1(Math.max(0, left))} ${unitSuffix}`;
+      })()
       : undefined;
 
   const hasStart = profile.startingWeightKg != null;
-  const deltaFromStart =
+  const { deltaTitle, deltaDisplay } =
     hasStart && currentWeightKg != null
-      ? (wUnits === "kg"
-        ? Math.round(currentWeightKg - (profile.startingWeightKg as number))
-        : Math.round(kgToLb(currentWeightKg - (profile.startingWeightKg as number))))
-      : undefined;
+      ? (() => {
+        const diffKg = currentWeightKg - (profile.startingWeightKg as number);
+        const val = wUnits === "kg" ? diffKg : kgToLb(diffKg);
+        const r = round1(val);
+        const title = r < 0 ? "Weight Lost" : r > 0 ? "Weight Gained" : "Weight Change";
+        const display = `${r > 0 ? "+" : ""}${smart1(r)} ${unitSuffix}`;
+        return { deltaTitle: title, deltaDisplay: display };
+      })()
+      : { deltaTitle: undefined, deltaDisplay: undefined };
 
+  const today = dayjs().startOf("day");
   const hasEndDate = !!targetDateISO;
   const daysRemaining = hasEndDate
-    ? Math.max(0, dayjs(targetDateISO!).diff(dayjs(), "day"))
+    ? Math.max(0, dayjs(targetDateISO!).startOf("day").diff(today, "day"))
     : undefined;
 
-  // Date Picker State
+  // ===== DATE PICKER STATE =====
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(targetDateISO ? dayjs(targetDateISO).toDate() : null);
 
-  const today = dayjs().startOf("day");
   const minSelectable = today.add(1, "day").toDate();
 
   const prettyEndDate = targetDateISO ? dayjs(targetDateISO).format("MMMM D, YYYY") : "";
-  const openPicker = () => { Keyboard.dismiss(); setShowPicker(true); };
+  const openPicker = () => {
+    Keyboard.dismiss();
+    setShowPicker(true);
+  };
   const closePicker = () => setShowPicker(false);
 
-  // Theme tokens (keep in sync with Dashboard)
+  // ===== THEME TOKENS =====
   const ACCENT = "#5eada8";
   const TEXT = "#0f172a";
   const BG = "#f7f7f7";
   const CARD_BG = "#ffffff";
   const BORDER = "#eef2f7";
+  const ERROR = "#ef4444";
 
-  // rounded kcal display
   const kcal = (n?: number) => (typeof n === "number" ? `${Math.round(n)} kcal` : "—");
 
   return (
@@ -136,14 +192,17 @@ export default function Goals() {
           <Tile title="Maintenance" value={kcal(maintenance)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
           <Tile title="Target" value={kcal(target)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
 
+          <Tile title="Current Weight" value={fmtWeight(currentWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+          <Tile title="Starting Weight" value={fmtWeight(profile.startingWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+
           {!isMaintain && weightLeftDisplay != null && (
             <Tile title="Weight Left" value={weightLeftDisplay} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
           )}
 
-          {deltaFromStart != null && (
+          {deltaDisplay != null && (
             <Tile
-              title={deltaFromStart < 0 ? "Weight Lost" : deltaFromStart > 0 ? "Weight Gained" : "Weight Change"}
-              value={`${deltaFromStart > 0 ? "+" : ""}${deltaFromStart} ${unitSuffix}`}
+              title={deltaTitle!}
+              value={deltaDisplay!}
               sub="vs start"
               BORDER={BORDER}
               CARD_BG={CARD_BG}
@@ -234,16 +293,39 @@ export default function Goals() {
           <TextInput
             value={startW}
             onChangeText={(t) => {
-              setStartW(t);
-              const n = Number(t);
-              if (!Number.isNaN(n)) setStartingWeightKg(wUnits === "lb" ? lbToKg(n) : n);
+              // allow in-progress typing; block characters that break partial pattern
+              if (partialOK(t)) {
+                setStartW(t);
+              }
+              // don't save to store here
+              if (startErr) setStartErr(null); // clear live error as user types
+            }}
+            onEndEditing={() => {
+              // empty: restore last saved valid UI value
+              if (startW.trim() === "") {
+                setStartW(lastValidStartW);
+                setStartErr(null);
+                return;
+              }
+              if (finalOK(startW)) {
+                applyStartWeight(startW);
+                setLastValidStartW(startW);
+                setStartErr(null);
+              } else {
+                // invalid: keep what user typed, do not save, show error
+                setStartErr("Enter 50–999 with up to 1 decimal (e.g., 150 or 150.5).");
+              }
             }}
             placeholder={wUnits === "lb" ? "e.g. 200" : "e.g. 91"}
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             returnKeyType="done"
             onSubmitEditing={Keyboard.dismiss}
-            style={s.input}
+            style={[
+              s.input,
+              startErr ? { borderColor: ERROR } : null,
+            ]}
           />
+          {startErr ? <Text style={[s.errText]}>{startErr}</Text> : null}
 
           {/* Goal weight + date (for lose / gain) */}
           {!isMaintain && (
@@ -252,25 +334,41 @@ export default function Goals() {
               <TextInput
                 value={goalW}
                 onChangeText={(t) => {
-                  setGoalW(t);
-                  const n = Number(t);
-                  if (!Number.isNaN(n)) setGoalWeightKg(wUnits === "lb" ? lbToKg(n) : n);
+                  if (partialOK(t)) {
+                    setGoalW(t);
+                  }
+                  if (goalErr) setGoalErr(null);
+                }}
+                onEndEditing={() => {
+                  if (goalW.trim() === "") {
+                    setGoalW(lastValidGoalW);
+                    setGoalErr(null);
+                    return;
+                  }
+                  if (finalOK(goalW)) {
+                    applyGoalWeight(goalW);
+                    setLastValidGoalW(goalW);
+                    setGoalErr(null);
+                  } else {
+                    setGoalErr("Enter 50–999 with up to 1 decimal (e.g., 170 or 170.5).");
+                  }
                 }}
                 placeholder={wUnits === "lb" ? "e.g. 170" : "e.g. 77"}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 returnKeyType="done"
                 onSubmitEditing={Keyboard.dismiss}
-                style={s.input}
+                style={[
+                  s.input,
+                  goalErr ? { borderColor: ERROR } : null,
+                ]}
               />
+              {goalErr ? <Text style={s.errText}>{goalErr}</Text> : null}
 
               <Text style={[s.label, { marginTop: 16 }]}>Desired End Date (optional)</Text>
 
               {/* Display field that opens the picker */}
-              <Pressable
-                onPress={openPicker}
-                style={[s.input, { justifyContent: "center" }]}
-              >
-                <Text style={{ fontSize: 16, color: targetDateISO ? TEXT : "#6b7280", textAlign: "center" }}>
+              <Pressable onPress={openPicker} style={[s.input, { justifyContent: "center" }]}>
+                <Text style={{ fontSize: 16, color: targetDateISO ? "#0f172a" : "#6b7280", textAlign: "center" }}>
                   {targetDateISO ? prettyEndDate : "select date (optional)"}
                 </Text>
               </Pressable>
@@ -288,18 +386,20 @@ export default function Goals() {
                     style={[modalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
                     onPress={(e) => e.stopPropagation()}
                   >
-                    <Text style={[modalStyles.title, { color: TEXT }]}>Choose your end date</Text>
+                    <Text style={[modalStyles.title, { color: "#0f172a" }]}>Choose your end date</Text>
 
                     <View style={[modalStyles.pickerBox, { borderColor: BORDER }]}>
                       <DateTimePicker
                         mode="date"
                         value={tempDate ?? minSelectable}
                         minimumDate={minSelectable}
-                        display={Platform.select({
-                          ios: "inline",
-                          android: "calendar",
-                          default: "calendar",
-                        }) as any}
+                        display={
+                          Platform.select({
+                            ios: "inline",
+                            android: "calendar",
+                            default: "calendar",
+                          }) as any
+                        }
                         onChange={(_e, date) => {
                           if (date && dayjs(date).isAfter(today, "day")) {
                             setTempDate(date);
@@ -333,7 +433,7 @@ export default function Goals() {
                         }}
                         style={({ pressed }) => [
                           modalStyles.cta,
-                          { backgroundColor: ACCENT, opacity: pressed ? 0.9 : 1 },
+                          { backgroundColor: "#5eada8", opacity: pressed ? 0.9 : 1 },
                         ]}
                       >
                         <Text style={modalStyles.ctaText}>Save date</Text>
@@ -451,6 +551,13 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
   },
+
+  errText: {
+    marginTop: 6,
+    color: "#ef4444",
+    fontSize: 12,
+    fontWeight: "600",
+  },
 });
 
 const chipStyles = StyleSheet.create({
@@ -515,12 +622,11 @@ const modalStyles = StyleSheet.create({
   },
   picker: {
     width: "100%",
-    transform:
-      Platform.select({
-        ios: [{ scale: 0.98 }],
-        android: [{ scale: 0.95 }],
-        default: [{ scale: 0.95 }],
-      }) as any,
+    transform: Platform.select({
+      ios: [{ scale: 0.98 }],
+      android: [{ scale: 0.95 }],
+      default: [{ scale: 0.95 }],
+    }) as any,
   },
   actions: {
     marginTop: 12,

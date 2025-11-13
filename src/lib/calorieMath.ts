@@ -42,8 +42,14 @@ export function tdee(
  * Caps to safe/realistic bands. Otherwise uses default: lose=-500, gain=+250, maintain=0.
  */
 export function computeDailyTarget({
-  sex, age, heightCm, currentWeightKg, activity,
-  mode, goalWeightKg, targetDateISO,
+  sex,
+  age,
+  heightCm,
+  currentWeightKg,
+  activity,
+  mode,
+  goalWeightKg,
+  targetDateISO,
 }: {
   sex: Sex;
   age: number;
@@ -57,27 +63,33 @@ export function computeDailyTarget({
   const base = tdee(sex, age, heightCm, currentWeightKg, activity);
 
   let delta = 0; // calories vs maintenance
-  if (mode === "maintain") delta = 0;
 
-  if (mode !== "maintain" && goalWeightKg && targetDateISO) {
+  if (mode === "maintain") {
+    delta = 0;
+  } else if (goalWeightKg != null && targetDateISO) {
+    // use exact math based on goal date
     const now = dayjs();
     const end = dayjs(targetDateISO);
     const days = Math.max(1, end.diff(now, "day"));
-    const kgDiff = (goalWeightKg - currentWeightKg); // negative if losing
-    // 1 kg fat ≈ 7700 kcal
+
+    const kgDiff = goalWeightKg - currentWeightKg; // negative if losing, positive if gaining
     const kcalNeeded = kgDiff * 7700;
     const perDay = kcalNeeded / days; // negative = deficit, positive = surplus
-    // clamp to safe range: lose up to ~900 kcal/day deficit, gain up to ~500 surplus
-    delta = Math.max(Math.min(perDay, 500), -900);
+
+    // 👉 no clamp: let the date fully determine the deficit/surplus
+    delta = perDay;
   } else if (mode === "lose") {
+    // fallback if no goal weight or date
     delta = -500;
   } else if (mode === "gain") {
+    // fallback if no goal weight or date
     delta = +250;
   }
 
   const target = Math.round(base + delta);
   return { maintenance: base, target };
 }
+
 
 /** Estimate completion date from average daily deficit/surplus trend (simple). */
 export function estimateCompletionDate({
