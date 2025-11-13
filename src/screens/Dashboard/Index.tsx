@@ -251,15 +251,15 @@ export default function Dashboard() {
   const lbUnit = isExactlyOne(currentWeightKg) ? "lb" : "lbs";
   const startingWDisplay =
     profile.startingWeightKg != null
-      ? (DISPLAY_UNIT === "kg" ? `${(profile.startingWeightKg)} ${kgUnit}` : `${(kgToLb(profile.startingWeightKg))} ${lbUnit}`)
+      ? (DISPLAY_UNIT === "kg" ? `${Math.round(profile.startingWeightKg*10)/10} ${kgUnit}` : `${Math.round(kgToLb(profile.startingWeightKg)*10)/10} ${lbUnit}`)
       : "—";
 
   // tiny float-safe equality check
 
   const currentWDisplay =
     DISPLAY_UNIT === "kg"
-      ? `${currentWeightKg} ${kgUnit}`
-      : `${toLb(currentWeightKg)} ${lbUnit}`;
+      ? `${Math.round(currentWeightKg*10)/10} ${kgUnit}`
+      : `${Math.round(toLb(currentWeightKg)*10)/10} ${lbUnit}`;
 
 
   const hasStart = profile.startingWeightKg != null;
