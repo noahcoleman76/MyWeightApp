@@ -15,11 +15,3 @@ export const AppTheme: Theme = {
     notification: "#3d72ff",
   },
 };
-
-// 🩵 Teal Blue #3AAFA9 — primary; balance, calmness
-
-// 🤍 Ivory White #FEFFFF — background; breathable space
-
-// 💚 Sage Green #A8D5BA — secondary; organic, natural health
-
-// 🌾 Warm Sand #E8DAB2 — accent; warmth and human touch

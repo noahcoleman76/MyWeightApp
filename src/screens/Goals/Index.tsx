@@ -1,5 +1,6 @@
 // app/screens/Goals/Index.tsx
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useFocusEffect } from "@react-navigation/native";
 import dayjs from "dayjs";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -24,6 +25,19 @@ export default function Goals() {
   const { profile, setActivity, setUnits, setStartingWeightKg } = useProfileStore();
   const { mode, goalWeightKg, targetDateISO, setMode, setGoalWeightKg, setTargetDateISO } = useGoalStore();
   const { logs } = useLogStore();
+  const scrollRef = React.useRef<ScrollView | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // wait for layout, then jump to top (no animation)
+      const timeout = setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      }, 0);
+
+      return () => clearTimeout(timeout);
+    }, [])
+  );
+
 
   // ===== UNITS / DISPLAY HELPERS =====
   const [hUnits, setHUnits] = useState(profile.heightUnit ?? "in");
@@ -178,6 +192,7 @@ export default function Goals() {
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: BG }]}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={s.scroll}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -369,7 +384,7 @@ export default function Goals() {
               {/* Display field that opens the picker */}
               <Pressable onPress={openPicker} style={[s.input, { justifyContent: "center" }]}>
                 <Text style={{ fontSize: 16, color: targetDateISO ? "#0f172a" : "#6b7280", textAlign: "center" }}>
-                  {targetDateISO ? prettyEndDate : "select date (optional)"}
+                  {targetDateISO ? prettyEndDate : "select date"}
                 </Text>
               </Pressable>
 

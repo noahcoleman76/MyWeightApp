@@ -1,11 +1,11 @@
 // app/screens/Dashboard/Index.tsx
 import { useAppStore } from "@/src/state/appStore";
 import { useSubscriptionStore } from "@/src/state/subscriptionStore";
-import { useNavigation, useTheme } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useTheme } from "@react-navigation/native";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import React, { useEffect, useMemo } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   VictoryArea,
@@ -35,6 +35,7 @@ const FIRST_SEEN_KEY = "first_dashboard_seen_iso";  // legacy / fallback
 export default function Dashboard() {
   const nav = useNavigation<any>();
   const { colors } = useTheme();
+  const scrollRef = React.useRef<ScrollView | null>(null);
 
   const { profile } = useProfileStore();
   const { goalWeightKg, targetDateISO, dailyTargetOverride, mode } = useGoalStore();
@@ -56,6 +57,17 @@ export default function Dashboard() {
   // ---------- units
   const DISPLAY_UNIT: "kg" | "lb" = profile.weightUnit === "kg" ? "kg" : "lb";
   const toDisplay = (kg: number) => (DISPLAY_UNIT === "kg" ? Math.round(kg * 10) / 10 : Math.round(kgToLb(kg) * 10) / 10);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // wait for layout, then jump to top (no animation)
+      const timeout = setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      }, 0);
+
+      return () => clearTimeout(timeout);
+    }, [])
+  );
 
   // ---------- start-day resolution (start_day_iso -> first_seen -> today)
   const chartStartISO: string = useMemo(() => {
@@ -251,15 +263,15 @@ export default function Dashboard() {
   const lbUnit = isExactlyOne(currentWeightKg) ? "lb" : "lbs";
   const startingWDisplay =
     profile.startingWeightKg != null
-      ? (DISPLAY_UNIT === "kg" ? `${Math.round(profile.startingWeightKg*10)/10} ${kgUnit}` : `${Math.round(kgToLb(profile.startingWeightKg)*10)/10} ${lbUnit}`)
+      ? (DISPLAY_UNIT === "kg" ? `${Math.round(profile.startingWeightKg * 10) / 10} ${kgUnit}` : `${Math.round(kgToLb(profile.startingWeightKg) * 10) / 10} ${lbUnit}`)
       : "—";
 
   // tiny float-safe equality check
 
   const currentWDisplay =
     DISPLAY_UNIT === "kg"
-      ? `${Math.round(currentWeightKg*10)/10} ${kgUnit}`
-      : `${Math.round(toLb(currentWeightKg)*10)/10} ${lbUnit}`;
+      ? `${Math.round(currentWeightKg * 10) / 10} ${kgUnit}`
+      : `${Math.round(toLb(currentWeightKg) * 10) / 10} ${lbUnit}`;
 
 
   const hasStart = profile.startingWeightKg != null;
@@ -302,7 +314,8 @@ export default function Dashboard() {
   // ---------- render
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef}
+        contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Title */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: TEXT, textAlign: "center" }]}>Dashboard</Text>
@@ -311,7 +324,10 @@ export default function Dashboard() {
         {/* Streak */}
         <View style={[styles.card, styles.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
           <View style={styles.streakRow}>
-            <Text style={[styles.flame, { color: ACCENT }]}>🔥</Text>
+            <Image
+              source={require("../../../assets/images/flame.png")}
+              style={styles.flame}
+            />
             <View style={{ flex: 1 }}>
               <Text style={[styles.streakValue, { color: TEXT }]}>{streak()} {streak() === 1 ? "day" : "days"}</Text>
               <Text style={styles.streakLabel}>Log Streak</Text>
@@ -474,7 +490,12 @@ const styles = StyleSheet.create({
   },
 
   streakRow: { flexDirection: "row", alignItems: "center" },
-  flame: { fontSize: 28, marginRight: 12 },
+  flame: {
+    width: 50,
+    height: 50,
+    marginRight: 6,
+    resizeMode: "contain",
+  },
   streakValue: { fontSize: 24, fontWeight: "800" },
   streakLabel: { fontSize: 14, color: "#6b7280", marginTop: 4 },
 
