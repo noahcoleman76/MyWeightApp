@@ -436,7 +436,7 @@ export default function Goals() {
                         }}
                         style={[modalStyles.linkBtn, { borderColor: BORDER }]}
                       >
-                        <Text style={modalStyles.linkText}>Choose date later</Text>
+                        <Text style={modalStyles.linkText}>No End Date</Text>
                       </TouchableOpacity>
 
                       <Pressable

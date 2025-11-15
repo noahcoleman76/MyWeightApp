@@ -1,8 +1,12 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
+  Keyboard,
+  Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +15,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Button from "../../components/ui/Button";
 import EmptyState from "../../components/ui/EmptyState";
 import { kgToLb, lbToKg } from "../../lib/calorieMath";
 import { useLogStore } from "../../state/logStore";
@@ -21,16 +24,23 @@ type Draft = { id?: string; dateISO: string; calories: string; weight: string };
 
 const isISODate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
+type DatePickerContext = "quick" | "edit" | null;
+
 export default function Log() {
   const { logs, add, update, remove } = useLogStore();
   const { profile } = useProfileStore();
-  const today = dayjs().format("YYYY-MM-DD");
+  const todayISO = dayjs().format("YYYY-MM-DD");
 
   // Quick add draft
-  const [qa, setQa] = useState<Draft>({ dateISO: today, calories: "", weight: "" });
+  const [qa, setQa] = useState<Draft>({ dateISO: todayISO, calories: "", weight: "" });
 
   // Edit draft
   const [edit, setEdit] = useState<Draft | null>(null);
+
+  // Date picker shared state (used for both quick-add and edit)
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerContext, setDatePickerContext] = useState<DatePickerContext>(null);
+  const [tempDate, setTempDate] = useState<Date | null>(null);
 
   const sorted = useMemo(
     () =>
@@ -40,16 +50,29 @@ export default function Log() {
     [logs]
   );
 
+  const resetQuickAdd = () => {
+    setQa({ dateISO: todayISO, calories: "", weight: "" });
+  };
+
   const saveQuickAdd = () => {
     if (!isISODate(qa.dateISO)) {
-      Alert.alert("Invalid date", "Please use YYYY-MM-DD.");
+      Alert.alert("Invalid date", "Please use a valid date.");
       return;
     }
-    const calories = Number(qa.calories);
-    const weightKg = qa.weight.trim()
+
+    const caloriesTrim = qa.calories.trim();
+    const weightTrim = qa.weight.trim();
+
+    if (!caloriesTrim && !weightTrim) {
+      Alert.alert("Add something", "Enter calories, weight, or both before saving.");
+      return;
+    }
+
+    const calories = Number(caloriesTrim);
+    const weightKg = weightTrim
       ? profile.weightUnit === "kg"
-        ? Number(qa.weight)
-        : lbToKg(Number(qa.weight))
+        ? Number(weightTrim)
+        : lbToKg(Number(weightTrim))
       : undefined;
 
     add({
@@ -57,20 +80,30 @@ export default function Log() {
       calories: Number.isNaN(calories) ? 0 : calories,
       weightKg,
     });
-    setQa({ dateISO: today, calories: "", weight: "" });
+
+    resetQuickAdd();
   };
 
   const saveEdit = () => {
     if (!edit?.id) return;
     if (!isISODate(edit.dateISO)) {
-      Alert.alert("Invalid date", "Please use YYYY-MM-DD.");
+      Alert.alert("Invalid date", "Please use a valid date.");
       return;
     }
-    const calories = Number(edit.calories);
-    const weightKg = edit.weight.trim()
+
+    const caloriesTrim = edit.calories.trim();
+    const weightTrim = edit.weight.trim();
+
+    if (!caloriesTrim && !weightTrim) {
+      Alert.alert("Add something", "Enter calories, weight, or both before saving.");
+      return;
+    }
+
+    const calories = Number(caloriesTrim);
+    const weightKg = weightTrim
       ? profile.weightUnit === "kg"
-        ? Number(edit.weight)
-        : lbToKg(Number(edit.weight))
+        ? Number(weightTrim)
+        : lbToKg(Number(weightTrim))
       : undefined;
 
     update(edit.id, {
@@ -81,7 +114,59 @@ export default function Log() {
     setEdit(null);
   };
 
-  // Theme tokens (kept consistent with Dashboard/Goals suggestions)
+  // ---- Date picker helpers ----
+
+  const openDatePicker = (ctx: DatePickerContext) => {
+    Keyboard.dismiss();
+    setDatePickerContext(ctx);
+
+    if (ctx === "quick") {
+      setTempDate(dayjs(qa.dateISO).toDate());
+    } else if (ctx === "edit" && edit) {
+      setTempDate(dayjs(edit.dateISO).toDate());
+    } else {
+      setTempDate(dayjs().toDate());
+    }
+
+    setShowDatePicker(true);
+  };
+
+  const closeDatePicker = () => {
+    setShowDatePicker(false);
+    setDatePickerContext(null);
+  };
+
+  const applyPickedDate = () => {
+    if (!tempDate) {
+      closeDatePicker();
+      return;
+    }
+    const iso = dayjs(tempDate).format("YYYY-MM-DD");
+
+    if (datePickerContext === "quick") {
+      setQa((prev) => ({ ...prev, dateISO: iso }));
+    } else if (datePickerContext === "edit") {
+      setEdit((prev) => (prev ? { ...prev, dateISO: iso } : prev));
+    }
+
+    closeDatePicker();
+  };
+
+  const setTodayInPicker = () => {
+    const now = new Date();
+    const iso = dayjs(now).format("YYYY-MM-DD");
+    setTempDate(now);
+
+    if (datePickerContext === "quick") {
+      setQa((prev) => ({ ...prev, dateISO: iso }));
+    } else if (datePickerContext === "edit") {
+      setEdit((prev) => (prev ? { ...prev, dateISO: iso } : prev));
+    }
+  };
+
+  const prettyDate = (iso: string) => dayjs(iso).format("MMMM D, YYYY");
+
+  // Theme tokens
   const ACCENT = "#5eada8";
   const TEXT = "#0f172a";
   const BG = "#f7f7f7";
@@ -90,69 +175,142 @@ export default function Log() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      {/* Global Date Picker Modal (shared by quick-add + edit) */}
+      <Modal
+        visible={showDatePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDatePicker}
+        presentationStyle="overFullScreen"
+      >
+        <Pressable style={dateModalStyles.backdrop} onPress={closeDatePicker}>
+          <Pressable
+            style={[dateModalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[dateModalStyles.title, { color: TEXT }]}>
+              {datePickerContext === "edit" ? "Edit log date" : "Choose log date"}
+            </Text>
+
+            <View style={[dateModalStyles.pickerBox, { borderColor: BORDER }]}>
+              <DateTimePicker
+                mode="date"
+                value={
+                  tempDate ??
+                  (datePickerContext === "edit" && edit
+                    ? dayjs(edit.dateISO).toDate()
+                    : dayjs(qa.dateISO).toDate())
+                }
+                display={
+                  Platform.select({
+                    ios: "inline",
+                    android: "calendar",
+                    default: "calendar",
+                  }) as any
+                }
+                onChange={(_e, date) => {
+                  if (date) {
+                    setTempDate(date);
+                    if (Platform.OS === "android") {
+                      const iso = dayjs(date).format("YYYY-MM-DD");
+                      if (datePickerContext === "quick") {
+                        setQa((prev) => ({ ...prev, dateISO: iso }));
+                      } else if (datePickerContext === "edit") {
+                        setEdit((prev) => (prev ? { ...prev, dateISO: iso } : prev));
+                      }
+                    }
+                  }
+                }}
+                themeVariant="light"
+                style={dateModalStyles.picker}
+              />
+            </View>
+
+            <View style={dateModalStyles.actions}>
+              <TouchableOpacity
+                onPress={setTodayInPicker}
+                style={[dateModalStyles.linkBtn, { borderColor: BORDER }]}
+              >
+                <Text style={dateModalStyles.linkText}>Use Today</Text>
+              </TouchableOpacity>
+
+              <Pressable
+                onPress={applyPickedDate}
+                style={({ pressed }) => [
+                  dateModalStyles.cta,
+                  { backgroundColor: ACCENT, opacity: pressed ? 0.9 : 1 },
+                ]}
+              >
+                <Text style={dateModalStyles.ctaText}>Save date</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <FlatList
         data={sorted}
         keyExtractor={(i) => i.id}
         ListHeaderComponent={
           <View>
-            {/* Title */}
-            <View style={styles.header}>
-              <Text style={[styles.title, { color: TEXT, textAlign: "center" }]}>Log</Text>
-            </View>
+            {/* Quick Add Card (inline, not a modal) */}
+            <View style={[styles.full, { marginTop: 16 }]}>
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: CARD_BG, borderColor: BORDER },
+                ]}
+              >
+                <Text style={styles.cardTitle}>Add New Log</Text>
 
-            {/* Quick Add Card */}
-            <View style={[styles.card, styles.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
-              <Text style={styles.cardTitle}>Quick Add</Text>
-
-              {/* Date row */}
-              <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-              <View style={styles.row}>
-                <TextInput
-                  value={qa.dateISO}
-                  onChangeText={(t) => setQa({ ...qa, dateISO: t })}
-                  placeholder="YYYY-MM-DD"
-                  autoCapitalize="none"
-                  returnKeyType="done"
-                  style={styles.inputFlex}
-                />
-                <View style={{ width: 10 }} />
+                {/* Date (pretty, press to open picker) */}
+                <Text style={styles.label}>Date</Text>
                 <Pressable
-                  onPress={() => setQa({ ...qa, dateISO: today })}
-                  style={[styles.smallBtn, { backgroundColor: ACCENT }]}
+                  onPress={() => openDatePicker("quick")}
+                  style={[styles.input, { justifyContent: "center" }]}
                 >
-                  <Text style={styles.smallBtnText}>Today</Text>
+                  <Text style={{ fontSize: 16, color: TEXT, textAlign: "center" }}>
+                    {prettyDate(qa.dateISO)}
+                  </Text>
                 </Pressable>
-              </View>
 
-              {/* Calories */}
-              <Text style={[styles.label, { marginTop: 12 }]}>Calories</Text>
-              <TextInput
-                value={qa.calories}
-                onChangeText={(t) => setQa({ ...qa, calories: t })}
-                keyboardType="numeric"
-                returnKeyType="done"
-                style={styles.input}
-              />
+                {/* Weight FIRST */}
+                <Text style={[styles.label, { marginTop: 12 }]}>
+                  Weight ({profile.weightUnit}) — optional 
+                </Text>
+                <TextInput
+                  value={qa.weight}
+                  onChangeText={(t) => setQa({ ...qa, weight: t })}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                  style={styles.input}
+                />
 
-              {/* Weight */}
-              <Text style={[styles.label, { marginTop: 12 }]}>
-                Weight ({profile.weightUnit}) — optional
-              </Text>
-              <TextInput
-                value={qa.weight}
-                onChangeText={(t) => setQa({ ...qa, weight: t })}
-                keyboardType="numeric"
-                returnKeyType="done"
-                style={styles.input}
-              />
+                {/* Calories SECOND */}
+                <Text style={[styles.label, { marginTop: 12 }]}>
+                  Calories — optional 
+                </Text>
+                <TextInput
+                  value={qa.calories}
+                  onChangeText={(t) => setQa({ ...qa, calories: t })}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                  style={styles.input}
+                />
 
-              <View style={{ marginTop: 14 }}>
-                <Button title="Save" onPress={saveQuickAdd} />
+                <View style={{ marginTop: 16, alignItems: "center" }}>
+                  <Pressable
+                    style={[styles.addBtn, { backgroundColor: ACCENT, width: "100%" }]}
+                    onPress={saveQuickAdd}
+                  >
+                    <Text style={styles.addBtnText}>Save</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
 
             {/* History header */}
-            <View style={[styles.full, { marginTop: 6, marginBottom: 4 }]}>
+            <View style={[styles.full, { marginTop: 12, marginBottom: 4 }]}>
               <Text style={styles.sectionTitle}>History</Text>
             </View>
 
@@ -162,8 +320,7 @@ export default function Log() {
                 <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
                   <EmptyState
                     title="No entries yet"
-                    subtitle="Start by adding today’s calories and weight. You’ll see your progress here."
-                    cta="Add first entry"
+                    cta="Start by adding today’s calories and weight. You’ll see your progress here."
                     onPress={saveQuickAdd}
                   />
                 </View>
@@ -181,49 +338,40 @@ export default function Log() {
 
           const isEditing = edit?.id === item.id;
 
-          if (isEditing) {
+          if (isEditing && edit) {
             return (
               <View style={[styles.full, { marginBottom: 10 }]}>
                 <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
                   <Text style={styles.editTitle}>Edit entry</Text>
 
-                  {/* Date */}
-                  <Text style={styles.label}>Date (YYYY-MM-DD)</Text>
-                  <View style={styles.row}>
-                    <TextInput
-                      value={edit.dateISO}
-                      onChangeText={(t) => setEdit({ ...edit!, dateISO: t })}
-                      placeholder="YYYY-MM-DD"
-                      autoCapitalize="none"
-                      returnKeyType="done"
-                      style={styles.inputFlex}
-                    />
-                    <View style={{ width: 10 }} />
-                    <Pressable
-                      onPress={() => setEdit({ ...edit!, dateISO: today })}
-                      style={[styles.smallBtn, { backgroundColor: ACCENT }]}
-                    >
-                      <Text style={styles.smallBtnText}>Today</Text>
-                    </Pressable>
-                  </View>
+                  {/* Date with picker */}
+                  <Text style={styles.label}>Date</Text>
+                  <Pressable
+                    onPress={() => openDatePicker("edit")}
+                    style={[styles.input, { justifyContent: "center" }]}
+                  >
+                    <Text style={{ fontSize: 16, color: TEXT, textAlign: "center" }}>
+                      {prettyDate(edit.dateISO)}
+                    </Text>
+                  </Pressable>
 
-                  {/* Calories */}
-                  <Text style={[styles.label, { marginTop: 12 }]}>Calories</Text>
-                  <TextInput
-                    value={edit.calories}
-                    onChangeText={(t) => setEdit({ ...edit!, calories: t })}
-                    keyboardType="numeric"
-                    returnKeyType="done"
-                    style={styles.input}
-                  />
-
-                  {/* Weight */}
+                  {/* Weight FIRST */}
                   <Text style={[styles.label, { marginTop: 12 }]}>
                     Weight ({profile.weightUnit})
                   </Text>
                   <TextInput
                     value={edit.weight}
-                    onChangeText={(t) => setEdit({ ...edit!, weight: t })}
+                    onChangeText={(t) => setEdit({ ...edit, weight: t })}
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    style={styles.input}
+                  />
+
+                  {/* Calories SECOND */}
+                  <Text style={[styles.label, { marginTop: 12 }]}>Calories</Text>
+                  <TextInput
+                    value={edit.calories}
+                    onChangeText={(t) => setEdit({ ...edit, calories: t })}
                     keyboardType="numeric"
                     returnKeyType="done"
                     style={styles.input}
@@ -268,7 +416,11 @@ export default function Log() {
                 </View>
                 <Text style={styles.rowText}>
                   Calories: <Text style={styles.rowStrong}>{item.calories ?? 0}</Text>
-                  {wDisp ? <Text>  •  Weight: <Text style={styles.rowStrong}>{wDisp}</Text></Text> : null}
+                  {wDisp ? (
+                    <Text>
+                      {"  •  "}Weight: <Text style={styles.rowStrong}>{wDisp}</Text>
+                    </Text>
+                  ) : null}
                 </Text>
                 <Text style={styles.rowHint}>Tap to edit</Text>
               </TouchableOpacity>
@@ -285,8 +437,6 @@ export default function Log() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 6, alignItems: "center" },
-  title: { fontSize: 34, fontWeight: "800" },
 
   full: { marginHorizontal: 20 },
   sectionTitle: { fontSize: 20, fontWeight: "800", color: "#0f172a" },
@@ -355,4 +505,85 @@ const styles = StyleSheet.create({
   rowStrong: { fontWeight: "800" },
   rowHint: { marginTop: 4, fontSize: 12, color: "#6b7280" },
   delete: { color: "#ef4444", fontSize: 14, fontWeight: "700" },
+
+  // Add button style (also used for Save on quick add)
+  addBtn: {
+    width: "86%",
+    borderRadius: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+  },
+  addBtnText: { color: "#fff", fontSize: 18, fontWeight: "700", letterSpacing: 0.3 },
+});
+
+/* date picker modal styles (matching Goals formatting) */
+const dateModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  card: {
+    width: "92%",
+    maxWidth: 360,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "stretch",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  pickerBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  picker: {
+    width: "100%",
+    transform: Platform.select({
+      ios: [{ scale: 0.98 }],
+      android: [{ scale: 0.95 }],
+      default: [{ scale: 0.95 }],
+    }) as any,
+  },
+  actions: {
+    marginTop: 12,
+    gap: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  linkBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linkText: { fontSize: 14, fontWeight: "600", color: "#6b7280" },
+  cta: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });
