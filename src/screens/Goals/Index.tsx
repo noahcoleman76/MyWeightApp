@@ -13,13 +13,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeDailyTarget, kgToLb, lbToKg } from "../../lib/calorieMath";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
+
 
 export default function Goals() {
   const { profile, setActivity, setUnits, setStartingWeightKg } = useProfileStore();
@@ -135,6 +136,27 @@ export default function Goals() {
     [profile, mode, goalWeightKg, targetDateISO, currentWeightKg]
   );
 
+  const MIN_TARGET = 1000;
+
+  // raw target from computeDailyTarget (can be undefined / funky)
+  const rawTarget = typeof target === "number" ? target : 0;
+
+  // treat ANY finite value below 1000 (including negatives) as needing clamp
+  const isTargetBelowMin =
+    Number.isFinite(rawTarget) && rawTarget < MIN_TARGET;
+
+  const safeTargetRaw = Number.isFinite(rawTarget) ? rawTarget : MIN_TARGET;
+
+  // what we actually show on the card
+  const targetDisplayNumber = Math.round(
+    isTargetBelowMin ? MIN_TARGET : safeTargetRaw
+  );
+
+  const targetWarning = isTargetBelowMin
+    ? "This is the minimum required for sustainable weight loss."
+    : undefined;
+
+
   // ===== DERIVED TILE METRICS (smart 1-decimal) =====
   const isMaintain = mode === "maintain";
 
@@ -187,7 +209,15 @@ export default function Goals() {
   const BORDER = "#eef2f7";
   const ERROR = "#ef4444";
 
-  const kcal = (n?: number) => (typeof n === "number" ? `${Math.round(n)} kcal` : "—");
+  const kcal = (n?: number) =>
+    typeof n === "number" ? `${Math.round(n)} kcal` : "—";
+
+  const maintenanceDisplay = kcal(maintenance);
+
+  const scrollToBottom = () => {
+    // Big Y to ensure we land at the bottom of content
+    scrollRef.current?.scrollTo({ y: 9999, animated: true });
+  };
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: BG }]}>
@@ -204,8 +234,21 @@ export default function Goals() {
 
         {/* ===== TOP: Metric Cards ===== */}
         <View style={s.tilesWrap}>
-          <Tile title="Maintenance" value={kcal(maintenance)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
-          <Tile title="Target" value={kcal(target)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+          <Tile
+            title="Maintenance"
+            value={maintenanceDisplay}
+            BORDER={BORDER}
+            CARD_BG={CARD_BG}
+            TEXT={TEXT}
+          />
+          <Tile
+            title="Target"
+            value={`${targetDisplayNumber} kcal`}
+            warning={targetWarning}
+            BORDER={BORDER}
+            CARD_BG={CARD_BG}
+            TEXT={TEXT}
+          />
 
           <Tile title="Current Weight" value={fmtWeight(currentWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
           <Tile title="Starting Weight" value={fmtWeight(profile.startingWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
@@ -237,7 +280,185 @@ export default function Goals() {
           )}
         </View>
 
-        {/* ===== MIDDLE: Mode, Activity, Units ===== */}
+        {/* ===== MIDDLE: Edit Inputs ===== */}
+        <Pressable
+          style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}
+          onPress={Keyboard.dismiss}
+        >
+          {/* Starting Weight */}
+          <Text style={s.label}>Starting Weight ({wUnits})</Text>
+          <TextInput
+            value={startW}
+            onChangeText={(t) => {
+              // allow in-progress typing; block characters that break partial pattern
+              if (partialOK(t)) {
+                setStartW(t);
+              }
+              // don't save to store here
+              if (startErr) setStartErr(null); // clear live error as user types
+            }}
+            onEndEditing={() => {
+              // empty: restore last saved valid UI value
+              if (startW.trim() === "") {
+                setStartW(lastValidStartW);
+                setStartErr(null);
+                return;
+              }
+              if (finalOK(startW)) {
+                applyStartWeight(startW);
+                setLastValidStartW(startW);
+                setStartErr(null);
+              } else {
+                // invalid: keep what user typed, do not save, show error
+                setStartErr("Enter 50–999 with up to 1 decimal (e.g., 150 or 150.5).");
+              }
+            }}
+            onFocus={scrollToBottom}
+            placeholder={wUnits === "lb" ? "e.g. 200" : "e.g. 91"}
+            keyboardType="decimal-pad"
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
+            style={[
+              s.input,
+              startErr ? { borderColor: ERROR } : null,
+            ]}
+          />
+          {startErr ? <Text style={[s.errText]}>{startErr}</Text> : null}
+
+          {/* Goal weight + date (for lose / gain) */}
+          {!isMaintain && (
+            <>
+              <Text style={[s.label, { marginTop: 16 }]}>Goal Weight ({wUnits})</Text>
+              <TextInput
+                value={goalW}
+                onChangeText={(t) => {
+                  if (partialOK(t)) {
+                    setGoalW(t);
+                  }
+                  if (goalErr) setGoalErr(null);
+                }}
+                onEndEditing={() => {
+                  if (goalW.trim() === "") {
+                    setGoalW(lastValidGoalW);
+                    setGoalErr(null);
+                    return;
+                  }
+                  if (finalOK(goalW)) {
+                    applyGoalWeight(goalW);
+                    setLastValidGoalW(goalW);
+                    setGoalErr(null);
+                  } else {
+                    setGoalErr("Enter 50–999 with up to 1 decimal (e.g., 170 or 170.5).");
+                  }
+                }}
+                onFocus={scrollToBottom}
+                placeholder={wUnits === "lb" ? "e.g. 170" : "e.g. 77"}
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+                style={[
+                  s.input,
+                  goalErr ? { borderColor: ERROR } : null,
+                ]}
+              />
+              {goalErr ? <Text style={s.errText}>{goalErr}</Text> : null}
+
+              <Text style={[s.label, { marginTop: 16 }]}>Desired End Date (optional)</Text>
+
+              {/* Display field that opens the picker */}
+              <Pressable onPress={openPicker} style={[s.input, { justifyContent: "center" }]}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    color: targetDateISO ? "#0f172a" : "#6b7280",
+                    textAlign: "center",
+                  }}
+                >
+                  {targetDateISO ? prettyEndDate : "select date"}
+                </Text>
+              </Pressable>
+
+              {/* Picker Modal (tap backdrop to close) */}
+              <Modal
+                animationType="fade"
+                transparent
+                visible={showPicker}
+                onRequestClose={closePicker}
+                presentationStyle="overFullScreen"
+              >
+                <Pressable style={modalStyles.backdrop} onPress={closePicker}>
+                  <Pressable
+                    style={[modalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
+                    onPress={(e) => e.stopPropagation()}
+                  >
+                    <Text style={[modalStyles.title, { color: "#0f172a" }]}>
+                      Choose your end date
+                    </Text>
+
+                    <View style={[modalStyles.pickerBox, { borderColor: BORDER }]}>
+                      <DateTimePicker
+                        mode="date"
+                        value={tempDate ?? minSelectable}
+                        minimumDate={minSelectable}
+                        display={
+                          Platform.select({
+                            ios: "inline",
+                            android: "calendar",
+                            default: "calendar",
+                          }) as any
+                        }
+                        onChange={(_e, date) => {
+                          if (date && dayjs(date).isAfter(today, "day")) {
+                            setTempDate(date);
+                            if (Platform.OS === "android") setShowPicker(false);
+                          }
+                        }}
+                        themeVariant="light"
+                        style={modalStyles.picker}
+                      />
+                    </View>
+
+                    {/* Actions */}
+                    <View style={modalStyles.actions}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setTempDate(null);
+                          setTargetDateISO(undefined);
+                          closePicker();
+                        }}
+                        style={[modalStyles.linkBtn, { borderColor: BORDER }]}
+                      >
+                        <Text style={modalStyles.linkText}>No End Date</Text>
+                      </TouchableOpacity>
+
+                      <Pressable
+                        onPress={() => {
+                          if (tempDate) {
+                            setTargetDateISO(
+                              dayjs(tempDate).format("YYYY-MM-DD")
+                            );
+                          }
+                          closePicker();
+                        }}
+                        style={({ pressed }) => [
+                          modalStyles.cta,
+                          {
+                            backgroundColor: "#5eada8",
+                            opacity: pressed ? 0.9 : 1,
+                          },
+                        ]}
+                      >
+                        <Text style={modalStyles.ctaText}>Save date</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                </Pressable>
+              </Modal>
+            </>
+          )}
+        </Pressable>
+
+        {/* ===== BOTTOM: Mode, Activity, Units ===== */}
         <Pressable style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]} onPress={Keyboard.dismiss}>
           {/* Mode */}
           <Text style={s.label}>Mode</Text>
@@ -300,166 +521,6 @@ export default function Goals() {
             />
           </View>
         </Pressable>
-
-        {/* ===== BOTTOM: Edit Inputs ===== */}
-        <Pressable style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]} onPress={Keyboard.dismiss}>
-          {/* Starting Weight */}
-          <Text style={s.label}>Starting Weight ({wUnits})</Text>
-          <TextInput
-            value={startW}
-            onChangeText={(t) => {
-              // allow in-progress typing; block characters that break partial pattern
-              if (partialOK(t)) {
-                setStartW(t);
-              }
-              // don't save to store here
-              if (startErr) setStartErr(null); // clear live error as user types
-            }}
-            onEndEditing={() => {
-              // empty: restore last saved valid UI value
-              if (startW.trim() === "") {
-                setStartW(lastValidStartW);
-                setStartErr(null);
-                return;
-              }
-              if (finalOK(startW)) {
-                applyStartWeight(startW);
-                setLastValidStartW(startW);
-                setStartErr(null);
-              } else {
-                // invalid: keep what user typed, do not save, show error
-                setStartErr("Enter 50–999 with up to 1 decimal (e.g., 150 or 150.5).");
-              }
-            }}
-            placeholder={wUnits === "lb" ? "e.g. 200" : "e.g. 91"}
-            keyboardType="decimal-pad"
-            returnKeyType="done"
-            onSubmitEditing={Keyboard.dismiss}
-            style={[
-              s.input,
-              startErr ? { borderColor: ERROR } : null,
-            ]}
-          />
-          {startErr ? <Text style={[s.errText]}>{startErr}</Text> : null}
-
-          {/* Goal weight + date (for lose / gain) */}
-          {!isMaintain && (
-            <>
-              <Text style={[s.label, { marginTop: 16 }]}>Goal Weight ({wUnits})</Text>
-              <TextInput
-                value={goalW}
-                onChangeText={(t) => {
-                  if (partialOK(t)) {
-                    setGoalW(t);
-                  }
-                  if (goalErr) setGoalErr(null);
-                }}
-                onEndEditing={() => {
-                  if (goalW.trim() === "") {
-                    setGoalW(lastValidGoalW);
-                    setGoalErr(null);
-                    return;
-                  }
-                  if (finalOK(goalW)) {
-                    applyGoalWeight(goalW);
-                    setLastValidGoalW(goalW);
-                    setGoalErr(null);
-                  } else {
-                    setGoalErr("Enter 50–999 with up to 1 decimal (e.g., 170 or 170.5).");
-                  }
-                }}
-                placeholder={wUnits === "lb" ? "e.g. 170" : "e.g. 77"}
-                keyboardType="decimal-pad"
-                returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
-                style={[
-                  s.input,
-                  goalErr ? { borderColor: ERROR } : null,
-                ]}
-              />
-              {goalErr ? <Text style={s.errText}>{goalErr}</Text> : null}
-
-              <Text style={[s.label, { marginTop: 16 }]}>Desired End Date (optional)</Text>
-
-              {/* Display field that opens the picker */}
-              <Pressable onPress={openPicker} style={[s.input, { justifyContent: "center" }]}>
-                <Text style={{ fontSize: 16, color: targetDateISO ? "#0f172a" : "#6b7280", textAlign: "center" }}>
-                  {targetDateISO ? prettyEndDate : "select date"}
-                </Text>
-              </Pressable>
-
-              {/* Picker Modal (tap backdrop to close) */}
-              <Modal
-                animationType="fade"
-                transparent
-                visible={showPicker}
-                onRequestClose={closePicker}
-                presentationStyle="overFullScreen"
-              >
-                <Pressable style={modalStyles.backdrop} onPress={closePicker}>
-                  <Pressable
-                    style={[modalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
-                    onPress={(e) => e.stopPropagation()}
-                  >
-                    <Text style={[modalStyles.title, { color: "#0f172a" }]}>Choose your end date</Text>
-
-                    <View style={[modalStyles.pickerBox, { borderColor: BORDER }]}>
-                      <DateTimePicker
-                        mode="date"
-                        value={tempDate ?? minSelectable}
-                        minimumDate={minSelectable}
-                        display={
-                          Platform.select({
-                            ios: "inline",
-                            android: "calendar",
-                            default: "calendar",
-                          }) as any
-                        }
-                        onChange={(_e, date) => {
-                          if (date && dayjs(date).isAfter(today, "day")) {
-                            setTempDate(date);
-                            if (Platform.OS === "android") setShowPicker(false);
-                          }
-                        }}
-                        themeVariant="light"
-                        style={modalStyles.picker}
-                      />
-                    </View>
-
-                    {/* Actions */}
-                    <View style={modalStyles.actions}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setTempDate(null);
-                          setTargetDateISO(undefined);
-                          closePicker();
-                        }}
-                        style={[modalStyles.linkBtn, { borderColor: BORDER }]}
-                      >
-                        <Text style={modalStyles.linkText}>No End Date</Text>
-                      </TouchableOpacity>
-
-                      <Pressable
-                        onPress={() => {
-                          if (tempDate) {
-                            setTargetDateISO(dayjs(tempDate).format("YYYY-MM-DD"));
-                          }
-                          closePicker();
-                        }}
-                        style={({ pressed }) => [
-                          modalStyles.cta,
-                          { backgroundColor: "#5eada8", opacity: pressed ? 0.9 : 1 },
-                        ]}
-                      >
-                        <Text style={modalStyles.ctaText}>Save date</Text>
-                      </Pressable>
-                    </View>
-                  </Pressable>
-                </Pressable>
-              </Modal>
-            </>
-          )}
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -503,6 +564,7 @@ function Tile({
   title,
   value,
   sub,
+  warning,
   BORDER,
   CARD_BG,
   TEXT,
@@ -510,6 +572,7 @@ function Tile({
   title: string;
   value: string;
   sub?: string;
+  warning?: string;
   BORDER: string;
   CARD_BG: string;
   TEXT: string;
@@ -519,9 +582,11 @@ function Tile({
       <Text style={[tileStyles.title, { color: TEXT }]}>{title}</Text>
       <Text style={[tileStyles.value, { color: TEXT }]}>{value}</Text>
       {sub ? <Text style={tileStyles.sub}>{sub}</Text> : null}
+      {warning ? <Text style={tileStyles.warning}>{warning}</Text> : null}
     </View>
   );
 }
+
 
 /* ---------- Styles ---------- */
 
@@ -603,6 +668,12 @@ const tileStyles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: "600" },
   value: { fontSize: 26, fontWeight: "800", marginTop: 4 },
   sub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  warning: {
+    fontSize: 11,
+    color: "#ef4444",
+    marginTop: 4,
+  },
+
 });
 
 const modalStyles = StyleSheet.create({
