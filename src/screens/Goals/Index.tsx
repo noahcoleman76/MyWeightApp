@@ -21,16 +21,23 @@ import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
 
-
 export default function Goals() {
   const { profile, setActivity, setUnits, setStartingWeightKg } = useProfileStore();
-  const { mode, goalWeightKg, targetDateISO, setMode, setGoalWeightKg, setTargetDateISO } = useGoalStore();
+  const {
+    mode,
+    goalWeightKg,
+    targetDateISO,
+    dailyTargetOverride,
+    setMode,
+    setGoalWeightKg,
+    setTargetDateISO,
+    setDailyTargetOverride,
+  } = useGoalStore();
   const { logs } = useLogStore();
   const scrollRef = React.useRef<ScrollView | null>(null);
 
   useFocusEffect(
     React.useCallback(() => {
-      // wait for layout, then jump to top (no animation)
       const timeout = setTimeout(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       }, 0);
@@ -39,14 +46,12 @@ export default function Goals() {
     }, [])
   );
 
-
   // ===== UNITS / DISPLAY HELPERS =====
   const [hUnits, setHUnits] = useState(profile.heightUnit ?? "in");
   const [wUnits, setWUnits] = useState(profile.weightUnit ?? "lb");
-  const unitSuffix = wUnits === "kg" ? "kg" : "lb";
+  const unitSuffix = wUnits === "kg" ? "kgs" : "lbs";
 
   const round1 = (n: number) => Math.round(n * 10) / 10;
-  // show 1 decimal only if needed (e.g., 250 -> "250", 250.2 -> "250.2")
   const smart1 = (n: number) => {
     const r = round1(n);
     return Number.isInteger(r) ? String(r) : r.toFixed(1);
@@ -58,7 +63,6 @@ export default function Goals() {
     return `${smart1(v)} ${unitSuffix}`;
   };
 
-  // used only to prefill the text inputs from store values
   const numberForInput = (kg?: number | null) => {
     if (kg == null) return "";
     const v = wUnits === "kg" ? kg : kgToLb(kg);
@@ -69,15 +73,19 @@ export default function Goals() {
   const [goalW, setGoalW] = useState(numberForInput(goalWeightKg));
   const [startW, setStartW] = useState(numberForInput(profile.startingWeightKg));
 
-  // last saved valid values (for optional revert-to-valid behavior if you want)
   const [lastValidGoalW, setLastValidGoalW] = useState(numberForInput(goalWeightKg));
   const [lastValidStartW, setLastValidStartW] = useState(numberForInput(profile.startingWeightKg));
 
-  // error flags
   const [goalErr, setGoalErr] = useState<string | null>(null);
   const [startErr, setStartErr] = useState<string | null>(null);
 
-  // Re-sync inputs when units or store values change
+  // ===== MANUAL TARGET INPUT STATE =====
+  const [manualTarget, setManualTarget] = useState(
+    dailyTargetOverride != null ? String(Math.round(dailyTargetOverride)) : ""
+  );
+  const [manualTargetErr, setManualTargetErr] = useState<string | null>(null);
+
+  // Re-sync when units / weights change
   useEffect(() => {
     const g = numberForInput(goalWeightKg);
     const s = numberForInput(profile.startingWeightKg);
@@ -91,11 +99,16 @@ export default function Goals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wUnits, goalWeightKg, profile.startingWeightKg]);
 
-  // ===== VALIDATION HELPERS =====
-  // Partial while-typing: up to 3 digits, optional dot + 1 decimal, or empty
-  const partialOK = (s: string) => /^\d{0,3}(\.\d?)?$/.test(s);
+  // Re-sync manual target when store changes
+  useEffect(() => {
+    setManualTarget(
+      dailyTargetOverride != null ? String(Math.round(dailyTargetOverride)) : ""
+    );
+    setManualTargetErr(null);
+  }, [dailyTargetOverride]);
 
-  // Final on blur: 2–3 digits, optional 1 decimal, and in range 50–999
+  // ===== VALIDATION HELPERS =====
+  const partialOK = (s: string) => /^\d{0,3}(\.\d?)?$/.test(s);
   const finalOK = (s: string) => /^\d{2,3}(\.\d)?$/.test(s) && Number(s) >= 50 && Number(s) <= 999;
 
   const toKgFromInput = (s: string) => {
@@ -106,7 +119,16 @@ export default function Goals() {
   const applyStartWeight = (s: string) => setStartingWeightKg(toKgFromInput(s));
   const applyGoalWeight = (s: string) => setGoalWeightKg(toKgFromInput(s));
 
-  // ===== CURRENT WEIGHT RESOLUTION (match Dashboard) =====
+  // Manual target kcal validation
+  const MIN_TARGET = 1000;
+  const partialTargetOK = (s: string) => /^\d{0,4}$/.test(s);
+  const finalTargetOK = (s: string) => {
+    if (!/^\d{3,4}$/.test(s)) return false;
+    const n = Number(s);
+    return n >= MIN_TARGET;
+  };
+
+  // ===== CURRENT WEIGHT RESOLUTION =====
   const latestLogged = useMemo(() => {
     const withWt = logs.filter((l) => typeof l.weightKg === "number");
     if (!withWt.length) return { kg: undefined as number | undefined, iso: undefined as string | undefined };
@@ -136,28 +158,32 @@ export default function Goals() {
     [profile, mode, goalWeightKg, targetDateISO, currentWeightKg]
   );
 
-  const MIN_TARGET = 1000;
-
-  // raw target from computeDailyTarget (can be undefined / funky)
   const rawTarget = typeof target === "number" ? target : 0;
 
-  // treat ANY finite value below 1000 (including negatives) as needing clamp
-  const isTargetBelowMin =
+  const isAutoTargetBelowMin =
     Number.isFinite(rawTarget) && rawTarget < MIN_TARGET;
 
   const safeTargetRaw = Number.isFinite(rawTarget) ? rawTarget : MIN_TARGET;
 
-  // what we actually show on the card
-  const targetDisplayNumber = Math.round(
-    isTargetBelowMin ? MIN_TARGET : safeTargetRaw
+  const autoTargetDisplayNumber = Math.round(
+    isAutoTargetBelowMin ? MIN_TARGET : safeTargetRaw
   );
 
-  const targetWarning = isTargetBelowMin
-    ? "This is the minimum required for sustainable weight loss."
-    : undefined;
+  // manual override (from store) wins; always clamp to >= MIN_TARGET
+  const effectiveTargetKcal =
+    dailyTargetOverride != null && Number.isFinite(dailyTargetOverride)
+      ? Math.round(Math.max(MIN_TARGET, dailyTargetOverride))
+      : autoTargetDisplayNumber;
 
+  const manualBelowMin =
+    dailyTargetOverride != null && dailyTargetOverride < MIN_TARGET;
 
-  // ===== DERIVED TILE METRICS (smart 1-decimal) =====
+  const targetWarning =
+    isAutoTargetBelowMin || manualBelowMin
+      ? "This is the minimum required for sustainable weight loss."
+      : undefined;
+
+  // ===== DERIVED TILE METRICS =====
   const isMaintain = mode === "maintain";
 
   const weightLeftDisplay =
@@ -188,6 +214,43 @@ export default function Goals() {
     ? Math.max(0, dayjs(targetDateISO!).startOf("day").diff(today, "day"))
     : undefined;
 
+  const goalWeightDisplay = goalWeightKg != null ? fmtWeight(goalWeightKg) : undefined;
+
+  // ===== DAYS LEFT (end date OR kcal math fallback) =====
+  const maintKcal = typeof maintenance === "number" ? maintenance : undefined;
+
+  let daysLeft: number | undefined;
+  let daysLeftSub: string | undefined;
+
+  if (!isMaintain && goalWeightKg != null) {
+    if (hasEndDate && typeof daysRemaining === "number") {
+      daysLeft = daysRemaining;
+      daysLeftSub = dayjs(targetDateISO!).format("MMM D, YYYY");
+    } else if (!hasEndDate && maintKcal != null && Number.isFinite(maintKcal)) {
+      const maintRounded = Math.round(maintKcal);
+
+      if (mode === "lose") {
+        const deficit = maintRounded - effectiveTargetKcal; // positive if target < maintenance
+        const diffKg = currentWeightKg - goalWeightKg; // >0 if weight to lose
+        if (deficit > 0 && diffKg > 0) {
+          const lbsToLose = kgToLb(diffKg);
+          const totalKcal = lbsToLose * 3500;
+          daysLeft = Math.max(1, Math.ceil(totalKcal / deficit));
+          daysLeftSub = `${smart1(lbsToLose)} lbs @ ${deficit} kcal/day`;
+        }
+      } else if (mode === "gain") {
+        const surplus = effectiveTargetKcal - maintRounded; // positive if target > maintenance
+        const diffKg = goalWeightKg - currentWeightKg; // >0 if weight to gain
+        if (surplus > 0 && diffKg > 0) {
+          const lbsToGain = kgToLb(diffKg);
+          const totalKcal = lbsToGain * 3500;
+          daysLeft = Math.max(1, Math.ceil(totalKcal / surplus));
+          daysLeftSub = `${smart1(lbsToGain)} lbs @ ${surplus} kcal/day`;
+        }
+      }
+    }
+  }
+
   // ===== DATE PICKER STATE =====
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(targetDateISO ? dayjs(targetDateISO).toDate() : null);
@@ -215,7 +278,6 @@ export default function Goals() {
   const maintenanceDisplay = kcal(maintenance);
 
   const scrollToBottom = () => {
-    // Big Y to ensure we land at the bottom of content
     scrollRef.current?.scrollTo({ y: 9999, animated: true });
   };
 
@@ -243,18 +305,46 @@ export default function Goals() {
           />
           <Tile
             title="Target"
-            value={`${targetDisplayNumber} kcal`}
+            value={`${effectiveTargetKcal} kcal`}
             warning={targetWarning}
             BORDER={BORDER}
             CARD_BG={CARD_BG}
             TEXT={TEXT}
           />
 
-          <Tile title="Current Weight" value={fmtWeight(currentWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
-          <Tile title="Starting Weight" value={fmtWeight(profile.startingWeightKg)} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+          <Tile
+            title="Current Weight"
+            value={fmtWeight(currentWeightKg)}
+            BORDER={BORDER}
+            CARD_BG={CARD_BG}
+            TEXT={TEXT}
+          />
+          <Tile
+            title="Starting Weight"
+            value={fmtWeight(profile.startingWeightKg)}
+            BORDER={BORDER}
+            CARD_BG={CARD_BG}
+            TEXT={TEXT}
+          />
+
+          {goalWeightDisplay && (
+            <Tile
+              title="Goal Weight"
+              value={goalWeightDisplay}
+              BORDER={BORDER}
+              CARD_BG={CARD_BG}
+              TEXT={TEXT}
+            />
+          )}
 
           {!isMaintain && weightLeftDisplay != null && (
-            <Tile title="Weight Left" value={weightLeftDisplay} BORDER={BORDER} CARD_BG={CARD_BG} TEXT={TEXT} />
+            <Tile
+              title="Weight Left"
+              value={weightLeftDisplay}
+              BORDER={BORDER}
+              CARD_BG={CARD_BG}
+              TEXT={TEXT}
+            />
           )}
 
           {deltaDisplay != null && (
@@ -268,11 +358,11 @@ export default function Goals() {
             />
           )}
 
-          {!isMaintain && hasEndDate && (
+          {!isMaintain && goalWeightKg != null && daysLeft != null && (
             <Tile
-              title="Days to Go"
-              value={String(daysRemaining)}
-              sub={dayjs(targetDateISO!).format("MMM D, YYYY")}
+              title="Days Left"
+              value={String(daysLeft)}
+              sub={daysLeftSub}
               BORDER={BORDER}
               CARD_BG={CARD_BG}
               TEXT={TEXT}
@@ -290,15 +380,12 @@ export default function Goals() {
           <TextInput
             value={startW}
             onChangeText={(t) => {
-              // allow in-progress typing; block characters that break partial pattern
               if (partialOK(t)) {
                 setStartW(t);
               }
-              // don't save to store here
-              if (startErr) setStartErr(null); // clear live error as user types
+              if (startErr) setStartErr(null);
             }}
             onEndEditing={() => {
-              // empty: restore last saved valid UI value
               if (startW.trim() === "") {
                 setStartW(lastValidStartW);
                 setStartErr(null);
@@ -309,7 +396,6 @@ export default function Goals() {
                 setLastValidStartW(startW);
                 setStartErr(null);
               } else {
-                // invalid: keep what user typed, do not save, show error
                 setStartErr("Enter 50–999 with up to 1 decimal (e.g., 150 or 150.5).");
               }
             }}
@@ -378,7 +464,7 @@ export default function Goals() {
                 </Text>
               </Pressable>
 
-              {/* Picker Modal (tap backdrop to close) */}
+              {/* Picker Modal */}
               <Modal
                 animationType="fade"
                 transparent
@@ -418,8 +504,7 @@ export default function Goals() {
                       />
                     </View>
 
-                    {/* Actions */}
-                    <View style={modalStyles.actions}>
+                    <View className="actions" style={modalStyles.actions}>
                       <TouchableOpacity
                         onPress={() => {
                           setTempDate(null);
@@ -454,13 +539,60 @@ export default function Goals() {
                   </Pressable>
                 </Pressable>
               </Modal>
+
+              {/* Manual daily target override */}
+              <Text style={[s.label, { marginTop: 16 }]}>
+                Daily Target Calories (optional)
+              </Text>
+              <TextInput
+                value={manualTarget}
+                onChangeText={(t) => {
+                  if (partialTargetOK(t)) {
+                    setManualTarget(t);
+                  }
+                  if (manualTargetErr) setManualTargetErr(null);
+                }}
+                onEndEditing={() => {
+                  const trimmed = manualTarget.trim();
+                  if (trimmed === "") {
+                    // Clear override
+                    setManualTarget("");
+                    setDailyTargetOverride(undefined);
+                    setManualTargetErr(null);
+                    return;
+                  }
+                  if (finalTargetOK(trimmed)) {
+                    const n = Number(trimmed);
+                    setDailyTargetOverride(n);
+                    setManualTargetErr(null);
+                  } else {
+                    setManualTargetErr(
+                      `Enter at least ${MIN_TARGET} kcal (e.g. 1700).`
+                    );
+                  }
+                }}
+                onFocus={scrollToBottom}
+                placeholder="e.g. 2300"
+                keyboardType="number-pad"
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+                style={[
+                  s.input,
+                  manualTargetErr ? { borderColor: ERROR } : null,
+                ]}
+              />
+              {manualTargetErr ? (
+                <Text style={s.errText}>{manualTargetErr}</Text>
+              ) : null}
             </>
           )}
         </Pressable>
 
         {/* ===== BOTTOM: Mode, Activity, Units ===== */}
-        <Pressable style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]} onPress={Keyboard.dismiss}>
-          {/* Mode */}
+        <Pressable
+          style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}
+          onPress={Keyboard.dismiss}
+        >
           <Text style={s.label}>Mode</Text>
           <View style={s.chipsRow}>
             {(["lose", "maintain", "gain"] as const).map((m) => (
@@ -468,7 +600,6 @@ export default function Goals() {
             ))}
           </View>
 
-          {/* Activity */}
           <Text style={[s.label, { marginTop: 18 }]}>Activity Level</Text>
           <View style={s.chipsWrap}>
             {(["sedentary", "light", "moderate", "high"] as const).map((a) => (
@@ -476,7 +607,6 @@ export default function Goals() {
             ))}
           </View>
 
-          {/* Units split into separate lines */}
           <Text style={[s.label, { marginTop: 18 }]}>Weight Units</Text>
           <View style={s.chipsRow}>
             <Chip
@@ -587,7 +717,6 @@ function Tile({
   );
 }
 
-
 /* ---------- Styles ---------- */
 
 const s = StyleSheet.create({
@@ -673,7 +802,6 @@ const tileStyles = StyleSheet.create({
     color: "#ef4444",
     marginTop: 4,
   },
-
 });
 
 const modalStyles = StyleSheet.create({
