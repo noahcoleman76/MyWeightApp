@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context"; // ✅ use this one
+import BackButton from "./ui/BackButton";
 
 
 type Option = { label: string; value: string };
@@ -37,6 +38,7 @@ export default function SingleChoice({
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]}>
+      <BackButton />
       <View style={styles.container}>
         <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 

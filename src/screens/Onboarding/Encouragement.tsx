@@ -4,6 +4,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RootStackParamList } from "../../navigation/RootNavigator";
+import BackButton from "@/src/components/ui/BackButton";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Encouragement">;
 
@@ -24,6 +25,7 @@ export default function Encouragement({ navigation }: Props) {
   // We’ll guide your daily targets and help you stay consistent.
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      <BackButton />
       <ScrollView
         contentContainerStyle={[styles.wrap]}
         showsVerticalScrollIndicator={false}

@@ -9,6 +9,7 @@ export default function Marketing2() {
       cta="Continue"
       nextRoute="Marketing3"
       showLoginLink
+      showBackButton={true}
     />
   );
 }

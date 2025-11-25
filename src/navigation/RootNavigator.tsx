@@ -1,9 +1,8 @@
 // src/navigation/RootNavigator.tsx
-import { Ionicons } from "@expo/vector-icons"; // npm i @expo/vector-icons
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import React from "react";
-import { Text, TouchableOpacity } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { useAuthStore } from "../state/authStore";
 
 // Onboarding / marketing
 import Marketing1 from "../screens/Onboarding/Marketing1";
@@ -32,6 +31,10 @@ import Concerns from "../screens/Onboarding/Concerns";
 import Encouragement from "../screens/Onboarding/Encouragement";
 import Motivation from "../screens/Onboarding/Motivation";
 
+// Auth
+import Login from "../screens/Login/Index";
+import CreateAccount from "../screens/CreateAccount/Index";
+
 // Paywall + main app
 import Paywall from "../screens/Paywall/Index";
 import TabNavigator from "./TabNavigator";
@@ -56,6 +59,8 @@ export type RootStackParamList = {
   Motivation: undefined;
   Concerns: undefined;
   Encouragement: undefined;
+  Login: undefined;
+  CreateAccount: undefined;
   Paywall: undefined;
   Tabs: undefined;
   First: undefined;
@@ -65,70 +70,87 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const { isLoggedIn, isInitializing } = useAuthStore();
+
+  useEffect(() => {
+    console.log('🗂️ RootNavigator auth state changed:', { isLoggedIn, isInitializing });
+    
+    if (isInitializing) {
+      console.log('⏳ RootNavigator waiting for auth initialization...');
+      return;
+    }
+    
+    // Get current route safely
+    const navigationState = navigationRef.current?.getState();
+    const currentRoute = navigationState?.routes[navigationState?.index];
+    console.log('📍 RootNavigator current route:', currentRoute?.name);
+    
+    // When user logs out, reset navigation to Login screen
+    if (!isLoggedIn && navigationRef.current) {
+      console.log('🔄 RootNavigator forcing navigation to Login (user logged out)');
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    }
+    // When user logs in from Login/CreateAccount screen, navigate to Marketing1
+    else if (isLoggedIn && navigationRef.current &&
+      (currentRoute?.name === 'Login' || currentRoute?.name === 'CreateAccount')) {
+      console.log('🚀 RootNavigator detected login from auth screen, navigating to Marketing1');
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Marketing1' }],
+      });
+    }
+  }, [isLoggedIn, isInitializing]);
+
   return (
-    <NavigationContainer theme={AppTheme}>
+    <NavigationContainer ref={navigationRef} theme={AppTheme}>
       <Stack.Navigator
         initialRouteName="Splash"
-        screenOptions={({ navigation, route }) => ({
-          headerTitle: "",                  // no header title on any screen
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: AppTheme.colors.card },
-          headerTitleStyle: { fontWeight: "600", fontSize: 18 },
-          contentStyle: { backgroundColor: AppTheme.colors.background },
+        screenOptions={{
+          headerShown: false, // Remove all headers
+          contentStyle: { backgroundColor: AppTheme.colors.card },
           animation: "slide_from_right",
           gestureEnabled: true,
-
-          // hide default back chevron and previous-title
-          headerBackVisible: false,
-
-          // our custom "Back" (only when you CAN go back)
-          headerLeft: () => {
-            const canGoBack = navigation.canGoBack?.() ?? false;
-            if (!canGoBack) return null;
-            return (
-              <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6 }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="chevron-back" size={22} color={AppTheme.colors.text} />
-                <Text style={{ marginLeft: 2, fontSize: 16, color: AppTheme.colors.text }}>Back</Text>
-              </TouchableOpacity>
-            );
-          },
-        })}
+        }}
       >
         {/* Splash shows every cold start for ~4s, then routes based on user state */}
         <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }} />
 
         {/* Marketing / Welcome slides */}
-        <Stack.Screen name="Marketing1" component={Marketing1} options={{ title: "Welcome" }} />
-        <Stack.Screen name="Marketing2" component={Marketing2} options={{ title: "Welcome" }} />
-        <Stack.Screen name="Marketing3" component={Marketing3} options={{ title: "Welcome" }} />
-        <Stack.Screen name="First" component={First} options={{ title: "Your Details" }} />
+        <Stack.Screen name="Marketing1" component={Marketing1} />
+        <Stack.Screen name="Marketing2" component={Marketing2} />
+        <Stack.Screen name="Marketing3" component={Marketing3} />
+        <Stack.Screen name="First" component={First} />
 
         {/* Data capture */}
-        <Stack.Screen name="Name" component={Name} options={{ title: "Your Name" }} />
-        <Stack.Screen name="GoalMode" component={GoalMode} options={{ title: "Your Goal" }} />
-        <Stack.Screen name="ChooseGender" component={ChooseGender} options={{ title: "Your Details" }} />
-        <Stack.Screen name="BirthYear" component={BirthYear} options={{ title: "Your Details" }} />
-        <Stack.Screen name="Height" component={Height} options={{ title: "Your Details" }} />
-        <Stack.Screen name="CurrentWeight" component={CurrentWeight} options={{ title: "Your Details" }} />
-        <Stack.Screen name="GoalWeight" component={GoalWeight} options={{ title: "Your Goal" }} />
-        <Stack.Screen name="TargetDate" component={TargetDate} options={{ title: "Timeline" }} />
-        <Stack.Screen name="Activity" component={ActivityPage} options={{ title: "Activity" }} />
+        <Stack.Screen name="Name" component={Name} />
+        <Stack.Screen name="GoalMode" component={GoalMode} />
+        <Stack.Screen name="ChooseGender" component={ChooseGender} />
+        <Stack.Screen name="BirthYear" component={BirthYear} />
+        <Stack.Screen name="Height" component={Height} />
+        <Stack.Screen name="CurrentWeight" component={CurrentWeight} />
+        <Stack.Screen name="GoalWeight" component={GoalWeight} />
+        <Stack.Screen name="TargetDate" component={TargetDate} />
+        <Stack.Screen name="Activity" component={ActivityPage} />
 
         {/* Info / framing */}
-        <Stack.Screen name="OnboardingHowItWorks" component={OnboardingHowItWorks} options={{ title: "How It Works" }} />
-        <Stack.Screen name="OnboardingLearnMore" component={OnboardingLearnMore} options={{ title: "Learn More" }} />
+        <Stack.Screen name="OnboardingHowItWorks" component={OnboardingHowItWorks} />
+        <Stack.Screen name="OnboardingLearnMore" component={OnboardingLearnMore} />
 
         {/* Motivation */}
-        <Stack.Screen name="Motivation" component={Motivation} options={{ title: "Your Why" }} />
-        <Stack.Screen name="Concerns" component={Concerns} options={{ title: "Your Concerns" }} />
-        <Stack.Screen name="Encouragement" component={Encouragement} options={{ headerShown: true }} />
+        <Stack.Screen name="Motivation" component={Motivation} />
+        <Stack.Screen name="Concerns" component={Concerns} />
+        <Stack.Screen name="Encouragement" component={Encouragement} />
+
+        {/* Auth */}
+        <Stack.Screen name="Login" component={Login} />
+        <Stack.Screen name="CreateAccount" component={CreateAccount} />
 
         {/* Paywall and App */}
-        <Stack.Screen name="Paywall" component={Paywall} options={{ title: "MyWeight Premium" }} />
+        <Stack.Screen name="Paywall" component={Paywall} />
         <Stack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>

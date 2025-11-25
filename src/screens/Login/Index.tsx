@@ -1,19 +1,72 @@
-// app/screens/Auth/Login.tsx (or wherever you keep it)
-
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import * as AppleAuthentication from "expo-apple-authentication";
-import React, { useState } from "react";
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AuthInput } from "../../components/ui/AuthInput";
+import { Toast } from "../../components/ui/Toast";
+import { AuthValidation } from "../../lib/firebase";
+import { useAuthStore } from "../../state/authStore";
 
 export default function Login() {
   const nav = useNavigation();
+  const { signIn, isLoading, loginError, clearLoginError } = useAuthStore();
 
-  const [identifier, setIdentifier] = useState(""); // username or email
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
-  const onLogin = () => {
-    // TODO: Hook into your auth flow
-    console.log("log in:", { identifier, password });
+  // Clear errors when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      clearLoginError();
+      setShowToast(false);
+      return () => {
+        // Cleanup when leaving screen
+        clearLoginError();
+      };
+    }, [clearLoginError])
+  );
+
+  const validateInputs = (): boolean => {
+    const emailValidation = AuthValidation.validateEmail(email);
+    const passwordValidation = AuthValidation.validatePassword(password);
+    
+    setEmailError(emailValidation);
+    setPasswordError(passwordValidation);
+    
+    return !emailValidation && !passwordValidation;
+  };
+
+  const onLogin = async () => {
+    console.log('🔑 Login button pressed');
+    // Clear previous errors
+    clearLoginError();
+    setShowToast(false);
+    
+    // Validate inputs
+    if (!validateInputs()) {
+      console.log('❌ Validation failed');
+      return;
+    }
+
+    console.log('✅ Validation passed, attempting sign in...');
+    try {
+      await signIn(email, password);
+      console.log('✅ signIn completed successfully');
+      // Clear form on success
+      setEmail("");
+      setPassword("");
+      setEmailError(null);
+      setPasswordError(null);
+      console.log('📝 Form cleared, waiting for navigation...');
+      // Navigation will be handled by the auth state change
+    } catch (error) {
+      // Show toast for auth errors
+      setShowToast(true);
+      console.log("❌ Login error:", error);
+    }
   };
 
   const handleAppleSignIn = async () => {
@@ -27,48 +80,83 @@ export default function Login() {
 
   return (
     <ScrollView
-      className="flex-1 bg-white px-6"
-      contentContainerStyle={{ paddingTop: 80, paddingBottom: 40 }}
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      bounces={false}
     >
       {/* Title */}
-      <Text className="text-3xl font-bold text-gray-900">Log In</Text>
-      <Text className="text-base text-gray-600 mt-2">
-        Welcome back. Let’s get you logged in.
+      <Text style={styles.title}>Log In</Text>
+      <Text style={styles.subtitle}>
+        Welcome back. Let's get you logged in.
       </Text>
 
+      {/* Toast for auth errors */}
+      <Toast
+        message={loginError?.message || ""}
+        type="error"
+        visible={showToast && !!loginError}
+        onDismiss={() => setShowToast(false)}
+      />
+
       {/* Inputs */}
-      <View className="mt-8 space-y-4">
-        <TextInput
-          placeholder="Username or email"
-          value={identifier}
-          onChangeText={setIdentifier}
-          className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
-          autoCapitalize="none"
+      <View style={styles.inputContainer}>
+        <AuthInput
+          label="Email Address"
+          placeholder="Enter your email"
+          value={email}
+          onChangeText={(text: string) => {
+            setEmail(text);
+            if (emailError) setEmailError(null);
+            if (loginError) clearLoginError();
+          }}
+          error={emailError}
           keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
+          editable={!isLoading}
+          required
         />
-        <TextInput
-          placeholder="Enter password"
+        
+        <AuthInput
+          label="Password"
+          placeholder="Enter your password"
           value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          className="border border-gray-300 rounded-xl px-4 py-3 text-base bg-gray-50"
+          onChangeText={(text: string) => {
+            setPassword(text);
+            if (passwordError) setPasswordError(null);
+            if (loginError) clearLoginError();
+          }}
+          error={passwordError}
+          isPassword
+          showPasswordToggle
+          autoComplete="password"
+          textContentType="password"
+          editable={!isLoading}
+          required
         />
       </View>
 
       {/* Primary button */}
       <Pressable
         onPress={onLogin}
-        className="mt-8 bg-[#5eada8] py-3 rounded-2xl items-center"
+        style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+        disabled={isLoading}
       >
-        <Text className="text-white font-semibold text-lg">Log In</Text>
+        {isLoading ? (
+          <ActivityIndicator color="#ffffff" size="small" />
+        ) : (
+          <Text style={styles.loginButtonText}>Sign In</Text>
+        )}
       </Pressable>
 
       {/* OR divider */}
-      <View className="flex-row items-center mt-6 mb-2">
-        <View className="flex-1 h-px bg-gray-300" />
-        <Text className="px-3 text-gray-500">or</Text>
-        <View className="flex-1 h-px bg-gray-300" />
+      <View style={styles.dividerContainer}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
       </View>
 
       {/* Apple sign in */}
@@ -77,31 +165,138 @@ export default function Login() {
           buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
           buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
           cornerRadius={14}
-          style={{ width: "100%", height: 48 }}
+          style={styles.appleButton}
           onPress={handleAppleSignIn}
         />
       ) : (
         // Simple fallback for non-iOS
         <Pressable
           onPress={handleAppleSignIn}
-          className="w-full py-3 rounded-2xl border border-gray-300 items-center"
+          style={styles.appleButtonFallback}
         >
-          <Text className="font-semibold text-base">Continue with Apple</Text>
+          <Text style={styles.appleButtonText}>Continue with Apple</Text>
         </Pressable>
       )}
 
       {/* Don’t have an account */}
       <Pressable
         onPress={() => nav.navigate("CreateAccount" as never)}
-        className="mt-6 flex-row justify-center"
+        style={({ pressed }) => [
+          styles.createAccountContainer,
+          pressed && styles.createAccountPressed
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Create new account"
       >
-        <Text className="text-gray-600 text-base">
-          Don’t have an account?{" "}
+        <Text style={styles.createAccountText}>
+          Don't have an account?{" "}
         </Text>
-        <Text className="text-[#5eada8] font-semibold text-base">
+        <Text style={styles.createAccountLink}>
           Create one
         </Text>
       </Pressable>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 24,
+  },
+  contentContainer: {
+    paddingTop: 80,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginTop: 8,
+  },
+  inputContainer: {
+    marginTop: 32,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: '#f9fafb',
+    marginBottom: 16,
+  },
+  loginButton: {
+    marginTop: 32,
+    backgroundColor: '#5eada8',
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 18,
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#d1d5db',
+  },
+  dividerText: {
+    paddingHorizontal: 12,
+    color: '#6b7280',
+  },
+  appleButton: {
+    width: '100%',
+    height: 48,
+    marginBottom: 24,
+  },
+  appleButtonFallback: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  appleButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  createAccountContainer: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  createAccountPressed: {
+    opacity: 0.7,
+  },
+  createAccountText: {
+    color: '#6b7280',
+    fontSize: 16,
+  },
+  createAccountLink: {
+    color: '#5eada8',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+});

@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BackButton from "./ui/BackButton";
 
 type Props = {
   title: string;
@@ -100,6 +101,8 @@ export default function CurrentWeight({
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
+      <BackButton />
+      {/* Tap anywhere outside to dismiss keyboard */}
       <Pressable style={styles.dismissArea} onPress={() => Keyboard.dismiss()}>
         <View style={styles.container}>
           <Text style={[styles.title, { color: TEXT }]}>{title}</Text>

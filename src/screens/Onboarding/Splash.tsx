@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { isOnboardingComplete } from "../../lib/onboarding";
-import { useAppStore } from "../../state/appStore";
+import { useAuthStore } from "../../state/authStore";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
@@ -28,7 +28,7 @@ export default function Splash() {
   const isDark = scheme === "dark";
 
   // Stores
-  const isLoggedIn   = useAppStore((s) => s.isLoggedIn);
+  const { isLoggedIn, isInitializing } = useAuthStore();
   const isEntitled   = useSubscriptionStore((s) => s.isEntitled);
   const profile      = useProfileStore((s) => s.profile);
   const mode         = useGoalStore((s) => s.mode);
@@ -38,21 +38,65 @@ export default function Splash() {
   const complete = isOnboardingComplete({ profile, mode, goalWeightKg });
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    console.log('🔄 Splash useEffect triggered:', {
+      isLoggedIn,
+      isInitializing,
+      isEntitled,
+      complete,
+      logsCount
+    });
+    
+    // Don't navigate until auth initialization is complete
+    if (isInitializing) {
+      console.log('⏳ Still initializing, waiting...');
+      return;
+    }
+
+    // Function to handle navigation logic
+    const handleNavigation = () => {
+      console.log('🚀 Navigation decision time:', {
+        isLoggedIn,
+        isEntitled,
+        complete
+      });
+      
       // RULES:
       // - If logged in and entitled -> Tabs
-      // - If logged in and NOT entitled -> Paywall only if onboarding complete; else Marketing1
-      // - If NOT logged in -> Paywall only if onboarding complete; else Marketing1
+      // - If logged in and NOT entitled -> Paywall only if onboarding complete; else Marketing1 screen (start onboarding)
+      // - If NOT logged in -> Login screen
       if (isLoggedIn && isEntitled) {
+        console.log('✅ Navigating to Tabs (logged in + entitled)');
         nav.reset({ index: 0, routes: [{ name: "Tabs", params: { screen: "Dashboard" } }] });
-      } else if (complete) {
+      } else if (isLoggedIn && complete) {
+        console.log('💰 Navigating to Paywall (logged in + onboarding complete)');
         nav.reset({ index: 0, routes: [{ name: "Paywall" }] });
-      } else {
+      } else if (isLoggedIn && !complete) {
+        // User is logged in but hasn't completed onboarding, start with Marketing1 screen
+        console.log('📱 Navigating to Marketing1 (logged in but onboarding incomplete)');
         nav.reset({ index: 0, routes: [{ name: "Marketing1" }] });
+      } else {
+        // User is not logged in, go to login
+        console.log('🔐 Navigating to Login (not logged in)');
+        nav.reset({ index: 0, routes: [{ name: "Login" }] });
       }
-    }, SPLASH_MS);
-    return () => clearTimeout(t);
-  }, [isLoggedIn, isEntitled, complete, nav, logsCount]);
+    };
+    
+    // Initial app load - wait for splash screen
+    const navigationState = nav.getState();
+    const currentRoute = navigationState?.routes[navigationState?.index];
+    console.log('📍 Current route:', currentRoute?.name);
+    
+    if (!currentRoute || currentRoute.name === 'Splash') {
+      // On initial load, wait for splash screen
+      console.log('⏱️ Initial load, waiting for splash timeout...');
+      const t = setTimeout(handleNavigation, SPLASH_MS);
+      return () => clearTimeout(t);
+    } else {
+      // Auth state changed while on other screens, navigate immediately
+      console.log('⚡ Auth state changed, navigating immediately...');
+      handleNavigation();
+    }
+  }, [isLoggedIn, isInitializing, isEntitled, complete, nav, logsCount]);
 
   // Theming
   const bg = { backgroundColor: colors.background };

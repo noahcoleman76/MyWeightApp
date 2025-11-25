@@ -1,3 +1,4 @@
+import BackButton from "@/src/components/ui/BackButton";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -17,6 +18,7 @@ export default function First() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      <BackButton />
       <View style={styles.wrap}>
         {/* Title */}
         <Text style={[styles.title, { color: TEXT }]}>

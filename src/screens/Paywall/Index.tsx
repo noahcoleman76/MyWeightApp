@@ -5,6 +5,7 @@ import {
   Alert,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -73,20 +74,22 @@ export default function Paywall({ navigation }: Props) {
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.cta,
+        styles.primaryButton,
         {
           backgroundColor: disabled ? "#E5E7EB" : ACCENT,
-          transform: [{ translateY: pressed && !disabled ? 1 : 0 }],
+          transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
           opacity: disabled ? 0.7 : 1,
         },
       ]}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
     >
-      <View style={styles.ctaContent}>
-        <Text style={[styles.ctaTitle, { textAlign: "center" }]}>Subscribe</Text>
-        <Text style={[styles.ctaPrice, { textAlign: "center" }]}>$4.99</Text>
-      </View>
+      <Text style={styles.primaryButtonText}>
+        Start Your Premium Journey
+      </Text>
+      <Text style={styles.primaryButtonSubtext}>
+        $4.99/month
+      </Text>
     </Pressable>
   );
 
@@ -104,184 +107,295 @@ export default function Paywall({ navigation }: Props) {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
-      <View style={styles.container}>
-        <Text style={[styles.title, { color: TEXT }]}>My Weight Premium</Text>
-
-        {/* Features card */}
-        <View
-          style={[
-            styles.card,
-            { borderColor: MUTED, backgroundColor: "#F9FAFB" },
-          ]}
-        >
-          <Text style={[styles.feature, { color: TEXT }]}>• Personalized daily calorie goals</Text>
-          <Text style={[styles.feature, { color: TEXT }]}>• Progress Tracking</Text>
-          <Text style={[styles.feature, { color: TEXT }]}>• Daily calorie log</Text>
-          <Text style={[styles.feature, { color: TEXT }]}>• Smart adjustments</Text>
-          <Text style={[styles.feature, { color: TEXT }]}>• Visual Motivation</Text>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header section */}
+        <View style={styles.header}>
+          <Text style={[styles.badge, { backgroundColor: ACCENT, color: "#FFFFFF" }]}>
+            PREMIUM
+          </Text>
+          <Text style={[styles.title, { color: TEXT }]}>
+            Unlock Your Full Potential
+          </Text>
+          <Text style={[styles.subtitle, { color: PLACEHOLDER }]}>
+            Join thousands achieving their weight goals
+          </Text>
         </View>
 
-        <Text style={[styles.helper, { color: PLACEHOLDER }]}>
-          Subscription auto-renews monthly. Cancel anytime in Apple ID settings.
-        </Text>
+        {/* Premium features with icons */}
+        <View style={styles.featuresContainer}>
+          {[
+            { icon: "🎯", title: "Personalized Goals", desc: "AI-powered calorie targets that adapt to your progress" },
+            { icon: "📊", title: "Advanced Analytics", desc: "Detailed charts and insights into your journey" },
+            { icon: "⚡", title: "Smart Adjustments", desc: "Automatic plan updates based on your results" },
+            { icon: "🏆", title: "Achievement System", desc: "Milestones and rewards to keep you motivated" },
+          ].map((feature, index) => (
+            <View key={index} style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: `${ACCENT}15` }]}>
+                <Text style={styles.iconText}>{feature.icon}</Text>
+              </View>
+              <View style={styles.featureContent}>
+                <Text style={[styles.featureTitle, { color: TEXT }]}>{feature.title}</Text>
+                <Text style={[styles.featureDesc, { color: PLACEHOLDER }]}>{feature.desc}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Pricing card */}
+        <View style={[styles.pricingCard, { backgroundColor: ACCENT }]}>
+          <View style={styles.pricingMain}>
+            <Text style={styles.currentPrice}>$4.99</Text>
+            <Text style={styles.pricingPeriod}>/month</Text>
+          </View>
+          <Text style={styles.pricingNote}>Billed monthly</Text>
+        </View>
 
         {/* Actions */}
         <View style={styles.actions}>
           <PrimaryCTA onPress={() => { grant(); goIn(); }} />
-
-          {/* Links */}
-          <LinkButton title="Restore Purchases" onPress={() => { grant(); goIn(); }} />
-          <LinkButton title="Skip for Review (dev)" onPress={goIn} />
-
-          {isEntitled ? (
-            <Pressable
-              onPress={revoke}
-              style={({ pressed }) => [
-                styles.cta,
-                {
-                  backgroundColor: "#ef4444",
-                  transform: [{ translateY: pressed ? 1 : 0 }],
-                },
-              ]}
-            >
-              <Text style={styles.ctaText}>Revoke (dev)</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        {/* Testing utilities card */}
-        <View
-          style={[
-            styles.toolsCard,
-            { borderColor: MUTED, backgroundColor: "#F9FAFB" },
-          ]}
-        >
-          <Text style={{ color: PLACEHOLDER, fontSize: 14, marginBottom: 8 }}>
-            Testing utilities
+          
+          <Text style={[styles.terms, { color: PLACEHOLDER }]}>
+            Auto-renews monthly. Cancel anytime in settings.
           </Text>
-          <Pressable
-            onPress={handleResetAll}
-            style={({ pressed }) => [
-              styles.cta,
-              {
-                backgroundColor: "#ef4444",
-                transform: [{ translateY: pressed ? 1 : 0 }],
-              },
-            ]}
-          >
-            <Text style={styles.ctaText}>Reset all data (testing)</Text>
-          </Pressable>
+
+          {/* Secondary actions */}
+          <View style={styles.secondaryActions}>
+            <LinkButton title="Restore Purchases" onPress={() => { grant(); goIn(); }} />
+            <Text style={[styles.separator, { color: MUTED }]}>•</Text>
+            <LinkButton title="Skip Trial" onPress={goIn} />
+          </View>
         </View>
-      </View>
+
+        {/* Dev tools (collapsed by default) */}
+        {__DEV__ && (
+          <View style={[styles.devTools, { borderColor: MUTED }]}>
+            <Text style={[styles.devTitle, { color: PLACEHOLDER }]}>Dev Tools</Text>
+            <View style={styles.devActions}>
+              {isEntitled && (
+                <Pressable
+                  onPress={revoke}
+                  style={({ pressed }) => [
+                    styles.devButton,
+                    { backgroundColor: "#ef4444", opacity: pressed ? 0.8 : 1 },
+                  ]}
+                >
+                  <Text style={styles.devButtonText}>Revoke</Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={handleResetAll}
+                style={({ pressed }) => [
+                  styles.devButton,
+                  { backgroundColor: "#ef4444", opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Text style={styles.devButtonText}>Reset All</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const CARD_WIDTH = 280;
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  container: {
+  scrollView: {
     flex: 1,
+  },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  // Header section
+  header: {
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: 18,
+    marginBottom: 32,
+    marginTop: 20,
+  },
+  badge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "800",
     textAlign: "center",
-    letterSpacing: 0.2,
+    marginBottom: 8,
+    lineHeight: 34,
   },
-  card: {
-    width: CARD_WIDTH,
+  subtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  // Features section
+  featuresContainer: {
+    marginBottom: 32,
+    gap: 16,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 4,
+    gap: 16,
+  },
+  featureIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconText: {
+    fontSize: 20,
+  },
+  featureContent: {
+    flex: 1,
+    paddingTop: 2,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Pricing card
+  pricingCard: {
     borderRadius: 20,
-    borderWidth: 2,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    padding: 20,
+    marginBottom: 24,
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 12 },
+        shadowRadius: 24,
+        shadowOpacity: 0.15,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  pricingMain: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: 4,
+  },
+  currentPrice: {
+    color: "#FFFFFF",
+    fontSize: 36,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  pricingPeriod: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 2,
+  },
+  pricingNote: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  // Actions section
+  actions: {
+    alignItems: "center",
+    gap: 16,
+  },
+  primaryButton: {
+    backgroundColor: "#000",
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    width: "100%",
+    maxWidth: 320,
+    alignItems: "center",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 8 },
         shadowRadius: 16,
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.2,
       },
-      android: { elevation: 4 },
+      android: { elevation: 6 },
     }),
-    gap: 6,
   },
-  feature: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  helper: {
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: -2,
-  },
-  actions: {
-    width: 260,
-    gap: 12,
-    marginTop: 4,
-    alignItems: "center",
-  },
-  // Primary button
-  cta: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    minWidth: 220,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctaText: {
+  primaryButtonText: {
     color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-    textAlign: "center",
-  },
-  // Stacked contents inside primary CTA
-  ctaContent: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctaTitle: {
-    color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "800",
-    letterSpacing: 0.3,
     marginBottom: 2,
   },
-  ctaPrice: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-    opacity: 0.95,
+  primaryButtonSubtext: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    fontWeight: "500",
   },
-  // Link buttons
+  terms: {
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 16,
+    maxWidth: 280,
+  },
+  secondaryActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 8,
+  },
+  separator: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
   linkText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     textAlign: "center",
   },
-  toolsCard: {
-    marginTop: 10,
-    borderRadius: 20,
-    borderWidth: 2,
+  // Dev tools
+  devTools: {
+    marginTop: 32,
     padding: 16,
-    width: CARD_WIDTH,
-    alignItems: "stretch",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+  },
+  devTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 12,
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  devActions: {
+    flexDirection: "row",
     gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowRadius: 16,
-        shadowOpacity: 0.08,
-      },
-      android: { elevation: 3 },
-    }),
+    justifyContent: "center",
+  },
+  devButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  devButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

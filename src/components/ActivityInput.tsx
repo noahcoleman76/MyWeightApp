@@ -2,6 +2,7 @@ import { useTheme } from "@react-navigation/native";
 import React, { useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BackButton from "./ui/BackButton";
 
 type Option = { label: string; value: string; text: string };
 
@@ -30,6 +31,7 @@ export default function ActivityInput({
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]}>
+      <BackButton />
       <View style={styles.container}>
         <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 

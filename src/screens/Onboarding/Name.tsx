@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useProfileStore } from "../../state/profileStore";
+import BackButton from "@/src/components/ui/BackButton";
 
 export default function Name() {
   const nav = useNavigation<any>();
@@ -45,6 +46,7 @@ export default function Name() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
+      <BackButton />
       {/* Tap anywhere outside to dismiss keyboard */}
       <Pressable style={styles.dismissArea} onPress={() => Keyboard.dismiss()}>
         <View style={styles.container}>

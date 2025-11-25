@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import NumericInput from "../../components/NumericInput";
+import BackButton from "@/src/components/ui/BackButton";
 
 export default function BirthYear() {
   const nav = useNavigation<any>();
@@ -25,6 +26,7 @@ export default function BirthYear() {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={{ flex: 1 }}>
+        <BackButton />
         <NumericInput
           title="What year were you born?"
           placeholder="1996"

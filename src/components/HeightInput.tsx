@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BackButton from "./ui/BackButton";
 
 type Props = {
   title: string;
@@ -78,6 +79,7 @@ export default function HeightInput({
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
+        <BackButton />
         <View style={styles.container}>
           <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 

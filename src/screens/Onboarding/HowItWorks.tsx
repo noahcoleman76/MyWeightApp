@@ -4,6 +4,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RootStackParamList } from "../../navigation/RootNavigator";
+import BackButton from "@/src/components/ui/BackButton";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OnboardingHowItWorks">;
 
@@ -30,6 +31,7 @@ export default function HowItWorks({ navigation }: Props) {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      <BackButton />
       <ScrollView
         contentContainerStyle={[styles.wrap]}
         showsVerticalScrollIndicator={false}

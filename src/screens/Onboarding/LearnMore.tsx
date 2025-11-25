@@ -1,20 +1,80 @@
+import { useTheme } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React from "react";
-import { Button, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { RootStackParamList } from "../../navigation/RootNavigator";
+import BackButton from "@/src/components/ui/BackButton";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OnboardingLearnMore">;
 
 export default function LearnMore({ navigation }: Props) {
+  const { colors } = useTheme();
+
+  // Match HowItWorks palette tokens
+  const ACCENT = colors?.primary ?? "#16a34a";
+  const TEXT = colors?.text ?? "#111827";
+  const BG = colors?.background ?? "#FFFFFF";
+
   return (
-    <View className="flex-1 items-center justify-center px-6 bg-white">
-      <Text className="text-xl font-semibold">Learn More</Text>
-      <Text className="mt-3 text-center text-gray-600">
-        Local-first storage, fast charts, and a distraction-free experience.
-      </Text>
-      <View className="mt-6 w-48">
-        <Button title="Next" onPress={() => navigation.navigate("Motivation")} />
+    <View style={{ flex: 1, backgroundColor: BG }}>
+      <BackButton />
+      <View style={styles.container}>
+        <Text style={[styles.title, { color: TEXT }]}>Learn More</Text>
+        <Text style={styles.description}>
+          Local-first storage, fast charts, and a distraction-free experience.
+        </Text>
+        <Pressable
+          onPress={() => navigation.navigate("Motivation")}
+          style={({ pressed }) => [
+            styles.cta,
+            {
+              backgroundColor: ACCENT,
+              borderColor: ACCENT,
+              opacity: pressed ? 0.9 : 1,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Next"
+        >
+          <Text style={styles.ctaText}>Next</Text>
+        </Pressable>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  description: {
+    marginTop: 12,
+    textAlign: 'center',
+    color: '#6b7280',
+    lineHeight: 20,
+    maxWidth: 360,
+  },
+  cta: {
+    marginTop: 24,
+    width: 260,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0,
+  },
+  ctaText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 16,
+    textTransform: 'none',
+  },
+});

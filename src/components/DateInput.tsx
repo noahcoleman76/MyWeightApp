@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import BackButton from "./ui/BackButton";
 
 type Props = {
   title: string;
@@ -80,6 +81,7 @@ export default function DateInput({
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
+      <BackButton />
       <View style={styles.wrap}>
         {/* Title */}
         <Text style={[styles.title, { color: TEXT }]}>{title}</Text>

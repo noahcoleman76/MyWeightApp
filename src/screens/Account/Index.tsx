@@ -4,27 +4,100 @@ import React, { useState } from "react";
 import {
   Linking,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import { useProfileStore } from "../../state/profileStore";
+import { useAuthStore } from "../../state/authStore";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Account() {
   const { colors } = useTheme();
   const primary = colors.primary ?? "#2563eb";
 
   const { profile, setName, setEmail } = useProfileStore();
+  const { user, signOut, deleteAccount, isLoading } = useAuthStore();
   const [name, setNameLocal] = useState(profile.name);
   const [email, setEmailLocal] = useState(profile.email ?? "");
 
   const save = () => {
     setName(name.trim() || "You");
     setEmail(email.trim() || undefined);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await signOut();
+              // Navigation will be handled by auth state change
+            } catch (error) {
+              Alert.alert("Error", "Failed to sign out. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone and will remove all your data.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: () => {
+            // Second confirmation dialog
+            Alert.alert(
+              "Final Confirmation",
+              "This will permanently delete your account and all associated data. Are you absolutely sure?",
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Yes, Delete Forever",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await deleteAccount();
+                      // Navigation will be handled by auth state change
+                    } catch (error) {
+                      Alert.alert(
+                        "Error", 
+                        "Failed to delete account. You might need to re-authenticate and try again."
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -106,6 +179,57 @@ export default function Account() {
                 onPress={() => Linking.openURL("https://myweightapp.com/terms")}
               >
                 <Text style={modalStyles.linkText}>Terms of Use</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Authentication section */}
+        <View style={s.full}>
+          <View style={[s.card, { borderColor: "#e5e7eb", backgroundColor: "#fff" }]}>
+            <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 12 }}>Account</Text>
+            
+            {user && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, color: "#6b7280", marginBottom: 4 }}>
+                  Signed in as
+                </Text>
+                <Text style={{ fontSize: 16, fontWeight: "600" }}>
+                  {user.displayName || "User"}
+                </Text>
+                <Text style={{ fontSize: 14, color: "#6b7280" }}>
+                  {user.email}
+                </Text>
+              </View>
+            )}
+            
+            <View style={{ gap: 10 }}>
+              <TouchableOpacity
+                onPress={handleLogout}
+                disabled={isLoading}
+                style={[modalStyles.linkBtn, { 
+                  borderColor: "#dc2626", 
+                  backgroundColor: "#fef2f2",
+                  opacity: isLoading ? 0.5 : 1 
+                }]}
+              >
+                <Text style={[modalStyles.linkText, { color: "#dc2626" }]}>
+                  {isLoading ? "Signing Out..." : "Sign Out"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleDeleteAccount}
+                disabled={isLoading}
+                style={[modalStyles.linkBtn, { 
+                  borderColor: "#991b1b", 
+                  backgroundColor: "#fef2f2",
+                  opacity: isLoading ? 0.3 : 1 
+                }]}
+              >
+                <Text style={[modalStyles.linkText, { color: "#991b1b", fontWeight: "700" }]}>
+                  {isLoading ? "Processing..." : "Delete Account"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

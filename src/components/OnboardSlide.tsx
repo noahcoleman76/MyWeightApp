@@ -5,11 +5,13 @@ import {
   Dimensions,
   Easing,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import BackButton from "./ui/BackButton";
 
 type Props = {
   image?: any;
@@ -17,6 +19,7 @@ type Props = {
   cta: string;
   nextRoute: string;
   showLoginLink?: boolean;
+  showBackButton?: boolean;
 };
 
 export default function OnboardSlide({
@@ -25,6 +28,7 @@ export default function OnboardSlide({
   cta,
   nextRoute,
   showLoginLink,
+  showBackButton = false,
 }: Props) {
   const nav = useNavigation<any>();
   const { colors } = useTheme();
@@ -55,6 +59,10 @@ export default function OnboardSlide({
 
   return (
     <View style={styles.container}>
+      {showBackButton && (
+        <BackButton />
+      )}
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: showBackButton ? 0 : 40 }]}>
       <Animated.View
         style={[
           styles.animWrap,
@@ -102,6 +110,7 @@ export default function OnboardSlide({
           )}
         </View>
       </Animated.View>
+      </ScrollView>
     </View>
   );
 }
@@ -113,11 +122,14 @@ const HERO_HEIGHT = 520;      // 2× visual height
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffffff",
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 24,
     alignItems: "center",
     justifyContent: "flex-start",
+    paddingBottom: 20,
   },
   animWrap: {
     width: "100%",
