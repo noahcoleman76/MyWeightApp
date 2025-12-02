@@ -15,7 +15,7 @@ export function isOnboardingComplete(opts: {
   
   const hasStartOrCurrent =
     Number.isFinite(profile.startingWeightKg) && (profile.startingWeightKg as number) > 0
-    || Number.isFinite(profile.currentWeight) && profile.currentWeight > 0;
+    || Number.isFinite(profile.currentWeightKg) && profile.currentWeightKg > 0;
 
   // Goal: goalWeight is required for lose/gain; optional for maintain
   const goalOk =

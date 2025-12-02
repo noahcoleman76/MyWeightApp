@@ -11,7 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.noahjcoleman.MyApp",
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "googleServicesFile": "./ios/MyApp/GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,13 +23,15 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.noahjcoleman.MyApp"
+      "package": "com.noahjcoleman.MyApp",
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
       [
         "expo-splash-screen",
         {
@@ -41,7 +44,8 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -504,7 +504,7 @@ export default function Goals() {
                       />
                     </View>
 
-                    <View className="actions" style={modalStyles.actions}>
+                    <View style={modalStyles.actions}>
                       <TouchableOpacity
                         onPress={() => {
                           setTempDate(null);

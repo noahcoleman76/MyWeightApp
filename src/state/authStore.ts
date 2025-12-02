@@ -24,6 +24,7 @@ type AuthState = {
   deleteAccount: () => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
+  signInWithApple: () => Promise<void>;
   
   // State management
   setUser: (user: AuthUser | null) => void;
@@ -233,6 +234,18 @@ export const useAuthStore = create<AuthState>()(
             generalError: authError,
             error: authError // Legacy support
           });
+          throw error;
+        }
+      },
+
+      signInWithApple: async () => {
+        set({ isLoading: true, generalError: null, loginError: null, signupError: null });
+        try {
+          const user = await FirebaseAuthService.signInWithApple();
+          set({ user, isLoggedIn: true, isLoading: false });
+        } catch (error) {
+          const authError = error as AuthError;
+          set({ isLoading: false, generalError: authError, loginError: authError, error: authError });
           throw error;
         }
       },

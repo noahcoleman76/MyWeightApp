@@ -8,8 +8,10 @@ import {
 } from "react-native";
 import NumericInput from "../../components/NumericInput";
 import BackButton from "@/src/components/ui/BackButton";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 
 export default function BirthYear() {
+  useOnboardingTracker("BirthYear"); // Track this screen
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const ACCENT = colors?.primary ?? "#16a34a";

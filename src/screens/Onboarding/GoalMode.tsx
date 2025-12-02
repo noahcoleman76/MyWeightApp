@@ -1,9 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
 import React from "react";
 import SingleChoice from "../../components/SingleChoice";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 import { useGoalStore } from "../../state/goalStore";
 
 export default function GoalMode() {
+  useOnboardingTracker("GoalMode");
   const setMode = useGoalStore((s) => s.setMode);
   const nav = useNavigation<any>();
   return (

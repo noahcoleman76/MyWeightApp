@@ -1,5 +1,8 @@
 // src/lib/firebase.ts
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 
 export interface AuthUser {
   uid: string;
@@ -72,6 +75,46 @@ export class FirebaseAuthService {
   static async sendPasswordResetEmail(email: string): Promise<void> {
     try {
       await auth().sendPasswordResetEmail(email.trim());
+    } catch (error) {
+      throw this.mapAuthError(error as FirebaseAuthTypes.NativeFirebaseAuthError);
+    }
+  }
+
+  /**
+   * Sign in with Apple (creates account on first sign-in)
+   */
+  static async signInWithApple(): Promise<AuthUser> {
+    try {
+      const rawNonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+
+      const appleCred = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      if (!appleCred.identityToken) {
+        throw { code: 'auth/invalid-credential', message: 'Apple identity token missing' } as FirebaseAuthTypes.NativeFirebaseAuthError;
+      }
+
+      const credential = auth.AppleAuthProvider.credential(appleCred.identityToken, rawNonce);
+      const userCredential = await auth().signInWithCredential(credential);
+
+      const fullName = appleCred.fullName;
+      if (fullName) {
+        const displayName = `${fullName.givenName ?? ''} ${fullName.familyName ?? ''}`.trim();
+        if (displayName) {
+          await userCredential.user.updateProfile({ displayName });
+        }
+      }
+
+      return this.mapFirebaseUser(userCredential.user);
     } catch (error) {
       throw this.mapAuthError(error as FirebaseAuthTypes.NativeFirebaseAuthError);
     }
@@ -254,5 +297,369 @@ export class AuthValidation {
     }
     
     return null;
+  }
+}
+
+// User data types for Firestore
+export interface FirestoreUserData {
+  // Profile data
+  name: string;
+  email?: string;
+  gender: "male" | "female";
+  age: number;
+  height: number; // cm
+  currentWeightKg: number;
+  startingWeightKg?: number;
+  activityLevel: "sedentary" | "light" | "moderate" | "high";
+  startDate: string; // ISO
+  weightUnit?: "lb" | "kg";
+  heightUnit?: "in" | "cm";
+  motivation?: string[];
+  concerns?: string[];
+  
+  // Goal data
+  goalMode: "lose" | "gain" | "maintain";
+  goalWeightKg?: number;
+  targetDateISO?: string;
+  dailyTargetOverride?: number;
+  
+  // Metadata
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+  onboardingCompletedAt?: string; // ISO timestamp
+}
+
+/**
+ * Firebase Firestore Service for user data management
+ */
+// Log entry types for Firestore
+export interface FirestoreLogEntry {
+  id: string;
+  dateISO: string; // YYYY-MM-DD
+  calories?: number;
+  weightKg?: number;
+  notes?: string;
+  createdAtISO: string; // full ISO timestamp
+  updatedAtISO: string; // full ISO timestamp
+  userId: string; // Firebase user ID
+}
+
+/**
+ * Firebase Firestore Service for log entries
+ */
+export class LogService {
+  private static readonly LOGS_COLLECTION = 'logs';
+  
+  /**
+   * Add a new log entry to Firestore
+   */
+  static async addLogEntry(userId: string, logEntry: Omit<FirestoreLogEntry, 'id' | 'userId' | 'createdAtISO' | 'updatedAtISO'>): Promise<string> {
+    try {
+      const now = new Date().toISOString();
+      
+      // Filter out undefined values as Firestore doesn't support them
+      const cleanedEntry = Object.fromEntries(
+        Object.entries(logEntry).filter(([_, value]) => value !== undefined)
+      );
+      
+      const dataToSave = {
+        ...cleanedEntry,
+        userId,
+        createdAtISO: now,
+        updatedAtISO: now,
+      };
+      
+      console.log('💾 Adding log entry to Firestore:', { 
+        userId, 
+        dateISO: logEntry.dateISO,
+        hasWeight: logEntry.weightKg !== undefined,
+        hasCalories: logEntry.calories !== undefined
+      });
+      
+      const docRef = await firestore()
+        .collection(this.LOGS_COLLECTION)
+        .add(dataToSave);
+        
+      console.log('✅ Log entry added to Firestore successfully:', { docId: docRef.id });
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Error adding log entry to Firestore:', error);
+      throw new Error('Failed to save log entry');
+    }
+  }
+  
+  /**
+   * Get all log entries for a user from Firestore
+   */
+  static async getUserLogEntries(userId: string): Promise<FirestoreLogEntry[]> {
+    try {
+      console.log('📥 Fetching log entries from Firestore:', { userId });
+      
+      const snapshot = await firestore()
+        .collection(this.LOGS_COLLECTION)
+        .where('userId', '==', userId)
+        .get();
+      
+      const logEntries: FirestoreLogEntry[] = [];
+      snapshot.forEach(doc => {
+        logEntries.push({
+          id: doc.id,
+          ...doc.data()
+        } as FirestoreLogEntry);
+      });
+      
+      // Sort on client side instead of using Firestore orderBy to avoid composite index
+      logEntries.sort((a, b) => {
+        const dateCompare = b.dateISO.localeCompare(a.dateISO);
+        if (dateCompare !== 0) return dateCompare;
+        // For same dates, sort by creation time (newest first)
+        return (b.createdAtISO || '').localeCompare(a.createdAtISO || '');
+      });
+      
+      console.log('✅ Log entries retrieved from Firestore:', { count: logEntries.length });
+      return logEntries;
+    } catch (error) {
+      console.error('❌ Error getting log entries from Firestore:', error);
+      throw new Error('Failed to fetch log entries');
+    }
+  }
+  
+  /**
+   * Update a log entry in Firestore
+   */
+  static async updateLogEntry(logId: string, userId: string, updates: Partial<Omit<FirestoreLogEntry, 'id' | 'userId' | 'createdAtISO' | 'updatedAtISO'>>): Promise<void> {
+    try {
+      // Filter out undefined values as Firestore doesn't support them
+      const cleanedUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, value]) => value !== undefined)
+      );
+      
+      const updateData = {
+        ...cleanedUpdates,
+        updatedAtISO: new Date().toISOString(),
+      };
+      
+      console.log('🔄 Updating log entry in Firestore:', { 
+        logId, 
+        userId,
+        hasWeight: updates.weightKg !== undefined,
+        hasCalories: updates.calories !== undefined
+      });
+      
+      await firestore()
+        .collection(this.LOGS_COLLECTION)
+        .doc(logId)
+        .update(updateData);
+        
+      console.log('✅ Log entry updated in Firestore successfully');
+    } catch (error) {
+      console.error('❌ Error updating log entry in Firestore:', error);
+      throw new Error('Failed to update log entry');
+    }
+  }
+  
+  /**
+   * Delete a log entry from Firestore
+   */
+  static async deleteLogEntry(logId: string, userId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting log entry from Firestore:', { logId, userId });
+      
+      await firestore()
+        .collection(this.LOGS_COLLECTION)
+        .doc(logId)
+        .delete();
+        
+      console.log('✅ Log entry deleted from Firestore successfully');
+    } catch (error) {
+      console.error('❌ Error deleting log entry from Firestore:', error);
+      throw new Error('Failed to delete log entry');
+    }
+  }
+  
+  /**
+   * Get log entries for a specific date range
+   */
+  static async getLogEntriesInDateRange(userId: string, startDateISO: string, endDateISO: string): Promise<FirestoreLogEntry[]> {
+    try {
+      console.log('📅 Fetching log entries in date range:', { userId, startDateISO, endDateISO });
+      
+      // Get all user entries and filter on client side to avoid composite index
+      const snapshot = await firestore()
+        .collection(this.LOGS_COLLECTION)
+        .where('userId', '==', userId)
+        .get();
+      
+      const logEntries: FirestoreLogEntry[] = [];
+      snapshot.forEach(doc => {
+        const data = doc.data() as Omit<FirestoreLogEntry, 'id'>;
+        // Filter by date range on client side
+        if (data.dateISO >= startDateISO && data.dateISO <= endDateISO) {
+          logEntries.push({
+            id: doc.id,
+            ...data
+          } as FirestoreLogEntry);
+        }
+      });
+      
+      // Sort on client side
+      logEntries.sort((a, b) => {
+        const dateCompare = b.dateISO.localeCompare(a.dateISO);
+        if (dateCompare !== 0) return dateCompare;
+        return (b.createdAtISO || '').localeCompare(a.createdAtISO || '');
+      });
+      
+      console.log('✅ Log entries in date range retrieved:', { count: logEntries.length });
+      return logEntries;
+    } catch (error) {
+      console.error('❌ Error getting log entries in date range:', error);
+      throw new Error('Failed to fetch log entries for date range');
+    }
+  }
+  
+  /**
+   * Delete all log entries for a user (when deleting account)
+   */
+  static async deleteAllUserLogEntries(userId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting all log entries for user:', { userId });
+      
+      const snapshot = await firestore()
+        .collection(this.LOGS_COLLECTION)
+        .where('userId', '==', userId)
+        .get();
+      
+      const batch = firestore().batch();
+      snapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      await batch.commit();
+      
+      console.log('✅ All user log entries deleted from Firestore:', { deletedCount: snapshot.size });
+    } catch (error) {
+      console.error('❌ Error deleting all user log entries:', error);
+      throw new Error('Failed to delete all log entries');
+    }
+  }
+}
+
+export class FirestoreService {
+  private static readonly USERS_COLLECTION = 'users';
+  
+  /**
+   * Save user data to Firestore
+   */
+  static async saveUserData(userId: string, userData: Omit<FirestoreUserData, 'createdAt' | 'updatedAt'>): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      
+      // Remove any undefined values as a safety measure
+      const cleanedUserData = Object.fromEntries(
+        Object.entries(userData).filter(([_, value]) => value !== undefined)
+      );
+      
+      const dataToSave: FirestoreUserData = {
+        ...cleanedUserData,
+        updatedAt: now,
+        createdAt: userData.onboardingCompletedAt || now, // Use onboardingCompletedAt as createdAt if available
+      } as FirestoreUserData;
+      
+      console.log('💾 Saving to Firestore:', { 
+        userId, 
+        fieldsCount: Object.keys(dataToSave).length,
+        hasUndefined: Object.values(dataToSave).some(v => v === undefined)
+      });
+      
+      await firestore()
+        .collection(this.USERS_COLLECTION)
+        .doc(userId)
+        .set(dataToSave, { merge: true });
+        
+      console.log('✅ User data saved to Firestore successfully');
+    } catch (error) {
+      console.error('❌ Error saving user data to Firestore:', error);
+      throw new Error('Failed to save user data');
+    }
+  }
+  
+  /**
+   * Get user data from Firestore
+   */
+  static async getUserData(userId: string): Promise<FirestoreUserData | null> {
+    try {
+      const doc = await firestore()
+        .collection(this.USERS_COLLECTION)
+        .doc(userId)
+        .get();
+        
+      if (doc.exists()) {
+        const data = doc.data() as FirestoreUserData;
+        console.log('✅ User data retrieved from Firestore successfully');
+        return data;
+      } else {
+        console.log('ℹ️ No user data found in Firestore');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error getting user data from Firestore:', error);
+      throw new Error('Failed to get user data');
+    }
+  }
+  
+  /**
+   * Check if user data exists in Firestore
+   */
+  static async userDataExists(userId: string): Promise<boolean> {
+    try {
+      const doc = await firestore()
+        .collection(this.USERS_COLLECTION)
+        .doc(userId)
+        .get();
+        
+      return doc.exists();
+    } catch (error) {
+      console.error('❌ Error checking if user data exists:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Delete user data from Firestore
+   */
+  static async deleteUserData(userId: string): Promise<void> {
+    try {
+      await firestore()
+        .collection(this.USERS_COLLECTION)
+        .doc(userId)
+        .delete();
+        
+      console.log('✅ User data deleted from Firestore successfully');
+    } catch (error) {
+      console.error('❌ Error deleting user data from Firestore:', error);
+      throw new Error('Failed to delete user data');
+    }
+  }
+  
+  /**
+   * Update specific fields in user data
+   */
+  static async updateUserData(userId: string, updates: Partial<Omit<FirestoreUserData, 'createdAt' | 'updatedAt'>>): Promise<void> {
+    try {
+      const updateData = {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      await firestore()
+        .collection(this.USERS_COLLECTION)
+        .doc(userId)
+        .update(updateData);
+        
+      console.log('✅ User data updated in Firestore successfully');
+    } catch (error) {
+      console.error('❌ Error updating user data in Firestore:', error);
+      throw new Error('Failed to update user data');
+    }
   }
 }

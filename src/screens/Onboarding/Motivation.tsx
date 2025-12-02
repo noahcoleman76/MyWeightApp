@@ -5,10 +5,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useGoalStore } from "../../state/goalStore";
 import { useProfileStore } from "../../state/profileStore";
 import BackButton from "@/src/components/ui/BackButton";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 
 const BASE = ["health concerns", "mobility", "self image", "training", "personal growth"];
 
 export default function Motivation() {
+  useOnboardingTracker("Motivation"); // Track this screen
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const mode = useGoalStore((s) => s.mode);

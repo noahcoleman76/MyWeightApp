@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useGoalStore } from "../../state/goalStore";
 import { useProfileStore } from "../../state/profileStore";
 import BackButton from "@/src/components/ui/BackButton";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 
 const BASE = [
   "not staying consistent",
@@ -15,6 +16,7 @@ const BASE = [
 ];
 
 export default function Concerns() {
+  useOnboardingTracker("Concerns"); // Track this screen
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const setConcerns = useProfileStore((s) => s.setConcerns);

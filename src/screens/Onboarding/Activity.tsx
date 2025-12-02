@@ -2,8 +2,10 @@ import ActivityInput from "@/src/components/ActivityInput";
 import { useProfileStore } from "@/src/state/profileStore";
 import { useNavigation } from "@react-navigation/native";
 import React from "react";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 
 export default function ActivityPage() {
+  useOnboardingTracker("Activity");
   const setMode = useProfileStore((s) => s.setActivity);
   const nav = useNavigation<any>();
   return (

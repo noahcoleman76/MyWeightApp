@@ -2,8 +2,10 @@ import { useNavigation, useTheme } from "@react-navigation/native";
 import React from "react";
 import SingleChoice from "../../components/SingleChoice";
 import { useProfileStore } from "../../state/profileStore";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 
 export default function ChooseGender() {
+  useOnboardingTracker("ChooseGender"); // Track this screen
   const setGender = useProfileStore((s) => s.setGender);
   const nav = useNavigation<any>();
   const { colors } = useTheme();

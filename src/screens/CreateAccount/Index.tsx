@@ -9,7 +9,7 @@ import { useAuthStore } from "../../state/authStore";
 
 export default function CreateAccount() {
   const nav = useNavigation();
-  const { signUp, isLoading, signupError, clearSignupError } = useAuthStore();
+  const { signUp, signInWithApple, isLoading, signupError, clearSignupError } = useAuthStore();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -77,10 +77,11 @@ export default function CreateAccount() {
 
   const handleAppleSignIn = async () => {
     try {
-      // TODO: implement real Apple sign-in
-      console.log("Apple sign-in pressed");
+      console.log('Apple sign-in pressed');
+      await signInWithApple();
     } catch (e) {
       console.warn(e);
+      setShowToast(true);
     }
   };
 
@@ -175,30 +176,24 @@ export default function CreateAccount() {
         )}
       </Pressable>
 
-      {/* OR divider */}
-      <View style={styles.dividerContainer}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>or</Text>
-        <View style={styles.dividerLine} />
-      </View>
+      {Platform.OS === "ios" && (
+        <>
+          {/* OR divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
-      {/* Apple sign in */}
-      {Platform.OS === "ios" ? (
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-          cornerRadius={14}
-          style={styles.appleButton}
-          onPress={handleAppleSignIn}
-        />
-      ) : (
-        // Simple fallback button for non-iOS (optional)
-        <Pressable
-          onPress={handleAppleSignIn}
-          style={styles.appleButtonFallback}
-        >
-          <Text style={styles.appleButtonText}>Continue with Apple</Text>
-        </Pressable>
+          {/* Apple sign in (iOS only) */}
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={14}
+            style={styles.appleButton}
+            onPress={handleAppleSignIn}
+          />
+        </>
       )}
 
       {/* Already have an account */}

@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { Text, View } from "react-native";
+import { Text, View, StyleSheet } from "react-native";
 import Button from "./Button";
 
 export default function EmptyState({
@@ -17,11 +17,33 @@ export default function EmptyState({
   onPress?: () => void;
 }) {
   return (
-    <View className="items-center justify-center py-16">
+    <View style={styles.container}>
       <MaterialCommunityIcons name={icon} size={42} color="#94a3b8" />
-      <Text className="text-h2 font-semibold mt-3 text-center">{title}</Text>
-      {subtitle ? <Text className="text-gray-500 text-center mt-1 max-w-[280px]">{subtitle}</Text> : null}
+      <Text style={styles.title}>{title}</Text>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       {cta ? <Button title={cta} onPress={onPress} variant="primary" style={{ marginTop: 16, minWidth: 180 }} /> : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    textAlign: 'center',
+    color: '#111827',
+  },
+  subtitle: {
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 280,
+    lineHeight: 20,
+  },
+});

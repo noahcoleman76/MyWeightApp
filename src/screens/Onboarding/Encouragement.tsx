@@ -1,15 +1,22 @@
+import BackButton from "@/src/components/ui/BackButton";
 import { useTheme } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
+import { UserDataService } from "../../lib/userDataService";
 import { RootStackParamList } from "../../navigation/RootNavigator";
-import BackButton from "@/src/components/ui/BackButton";
+import { useAuthStore } from "../../state/authStore";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Encouragement">;
 
 export default function Encouragement({ navigation }: Props) {
+  useOnboardingTracker("Encouragement"); // Track this screen
+  
   const { colors } = useTheme();
+  const { user } = useAuthStore();
+  const [isUploading, setIsUploading] = useState(false);
 
   // Match DateInput palette tokens
   const ACCENT = colors?.primary ?? "#16a34a";
@@ -18,7 +25,27 @@ export default function Encouragement({ navigation }: Props) {
   const MUTED = colors?.border ?? "#e5e7eb";
   const SUBTLE = "#6b7280";
 
-  const onNext = () => navigation.navigate("Paywall");
+  const onNext = async () => {
+    if (!user || isUploading) return;
+    
+    try {
+      setIsUploading(true);
+      console.log('🔄 Uploading user data to Firestore...');
+      
+      // Upload all collected user data to Firestore
+      await UserDataService.uploadUserDataToFirestore(user.uid);
+      
+      console.log('✅ User data uploaded successfully, navigating to Paywall');
+      navigation.navigate("Paywall");
+    } catch (error) {
+      console.error('❌ Failed to upload user data:', error);
+      // Still navigate to paywall for now, but could show error message
+      navigation.navigate("Paywall");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
   const onLearnMore = () => navigation.navigate("OnboardingLearnMore");
 
   // You have great potential to crush your goal.
@@ -43,18 +70,21 @@ export default function Encouragement({ navigation }: Props) {
         {/* Primary CTA — styled like DateInput.cta */}
         <Pressable
           onPress={onNext}
+          disabled={isUploading}
           style={({ pressed }) => [
             styles.cta,
             {
-              backgroundColor: ACCENT,
-              borderColor: ACCENT,
-              opacity: pressed ? 0.9 : 1,
+              backgroundColor: isUploading ? MUTED : ACCENT,
+              borderColor: isUploading ? MUTED : ACCENT,
+              opacity: pressed && !isUploading ? 0.9 : 1,
             },
           ]}
           accessibilityRole="button"
           accessibilityLabel="Next"
         >
-          <Text style={styles.ctaText}>Let's do this</Text>
+          <Text style={styles.ctaText}>
+            {isUploading ? "Saving..." : "Let's do this"}
+          </Text>
         </Pressable>
 
         {/* Secondary link (optional, mirrors DateInput’s subtle actions style) */}

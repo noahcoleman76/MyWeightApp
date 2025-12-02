@@ -3,6 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import dayjs from "dayjs";
 import React from "react";
 import CurrentWeightInput from "../../components/WeightInput";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 import { getItem, setItem } from "../../lib/mmkv";
 import { lbToKg } from "../../lib/units";
 import { useGoalStore } from "../../state/goalStore";
@@ -11,6 +12,7 @@ import { useProfileStore } from "../../state/profileStore";
 const START_DAY_KEY = "start_day_iso"; // YYYY-MM-DD
 
 export default function CurrentWeight() {
+  useOnboardingTracker("CurrentWeight");
   const setStartingWeightKg = useProfileStore((s) => s.setStartingWeightKg);
   const nav = useNavigation<any>();
   const mode = useGoalStore((s) => s.mode);

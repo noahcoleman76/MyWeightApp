@@ -1,8 +1,10 @@
 // src/navigation/RootNavigator.tsx
 import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { UserDataService } from "../lib/userDataService";
 import { useAuthStore } from "../state/authStore";
+import { useOnboardingStore } from "../state/onboardingStore";
 
 // Onboarding / marketing
 import Marketing1 from "../screens/Onboarding/Marketing1";
@@ -32,8 +34,8 @@ import Encouragement from "../screens/Onboarding/Encouragement";
 import Motivation from "../screens/Onboarding/Motivation";
 
 // Auth
-import Login from "../screens/Login/Index";
 import CreateAccount from "../screens/CreateAccount/Index";
+import Login from "../screens/Login/Index";
 
 // Paywall + main app
 import Paywall from "../screens/Paywall/Index";
@@ -71,42 +73,161 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
-  const { isLoggedIn, isInitializing } = useAuthStore();
+  const { isLoggedIn, isInitializing, user } = useAuthStore();
+  const { currentScreen, shouldResumeOnboarding, isUploadedToFirestore } = useOnboardingStore();
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [hasCheckedFirestore, setHasCheckedFirestore] = useState(false);
+  const [splashComplete, setSplashComplete] = useState(false);
 
+  // Splash screen timeout
   useEffect(() => {
-    console.log('🗂️ RootNavigator auth state changed:', { isLoggedIn, isInitializing });
+    console.log('⏱️ Starting splash timer (3000ms)');
+    const timer = setTimeout(() => {
+      console.log('✅ Splash timeout complete, setting splashComplete to true');
+      setSplashComplete(true);
+    }, 3000); // 3 seconds splash duration
     
-    if (isInitializing) {
-      console.log('⏳ RootNavigator waiting for auth initialization...');
+    return () => {
+      console.log('🧹 Cleaning up splash timer');
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Main navigation logic - only trigger after splash is complete
+  useEffect(() => {
+    console.log('🚦 Navigation useEffect triggered:', {
+      isNavigationReady,
+      isInitializing, 
+      hasCheckedFirestore,
+      splashComplete,
+      isLoggedIn,
+      isUploadedToFirestore
+    });
+    
+    if (!isNavigationReady) {
+      console.log('⏳ Navigation not ready yet...');
       return;
     }
     
-    // Get current route safely
-    const navigationState = navigationRef.current?.getState();
-    const currentRoute = navigationState?.routes[navigationState?.index];
-    console.log('📍 RootNavigator current route:', currentRoute?.name);
-    
-    // When user logs out, reset navigation to Login screen
-    if (!isLoggedIn && navigationRef.current) {
-      console.log('🔄 RootNavigator forcing navigation to Login (user logged out)');
-      navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
+    if (isInitializing) {
+      console.log('⏳ Auth still initializing...');
+      return;
     }
-    // When user logs in from Login/CreateAccount screen, navigate to Marketing1
-    else if (isLoggedIn && navigationRef.current &&
-      (currentRoute?.name === 'Login' || currentRoute?.name === 'CreateAccount')) {
-      console.log('🚀 RootNavigator detected login from auth screen, navigating to Marketing1');
+    
+    if (!hasCheckedFirestore && isLoggedIn) {
+      console.log('⏳ Still checking Firestore...');
+      return;
+    }
+    
+    if (!splashComplete) {
+      console.log('⏳ Splash screen still showing...');
+      return;
+    }
+
+    console.log('✅ All conditions met, calling handleNavigation');
+    handleNavigation();
+  }, [isLoggedIn, isInitializing, isNavigationReady, hasCheckedFirestore, splashComplete, currentScreen, shouldResumeOnboarding, isUploadedToFirestore]);
+
+  // Check Firestore for user data when user logs in
+  useEffect(() => {
+    console.log('🔍 Firestore check useEffect:', { isLoggedIn, hasUser: !!user, hasCheckedFirestore });
+    
+    if (isLoggedIn && user && !hasCheckedFirestore) {
+      console.log('🔍 User is logged in, checking Firestore...');
+      checkUserDataInFirestore();
+    } else if (!isLoggedIn) {
+      console.log('🔓 User not logged in, setting hasCheckedFirestore to true');
+      setHasCheckedFirestore(true); // Allow navigation when not logged in
+    }
+  }, [isLoggedIn, user, hasCheckedFirestore]);
+
+  const checkUserDataInFirestore = async () => {
+    if (!user) return;
+
+    try {
+      console.log('🔍 Checking Firestore for user data...');
+      const hasData = await UserDataService.hasCompletedOnboarding(user.uid);
+      
+      if (hasData) {
+        console.log('✅ User data found in Firestore, loading...');
+        await UserDataService.loadUserDataFromFirestore(user.uid);
+      } else {
+        console.log('ℹ️ No user data found in Firestore');
+      }
+    } catch (error) {
+      console.error('❌ Error checking/loading Firestore data:', error);
+    } finally {
+      setHasCheckedFirestore(true);
+    }
+  };
+
+  const handleNavigation = () => {
+    console.log('🚀 handleNavigation called!');
+    
+    if (!navigationRef.current) {
+      console.log('❌ navigationRef.current is null!');
+      return;
+    }
+
+    const navigationState = navigationRef.current.getState();
+    const currentRoute = navigationState?.routes[navigationState?.index];
+    
+    console.log('🗂️ Navigation logic - Current state:', {
+      isLoggedIn,
+      currentRoute: currentRoute?.name,
+      currentScreen,
+      shouldResumeOnboarding,
+      isUploadedToFirestore,
+    });
+
+    // If user is not logged in -> Navigate to Marketing1 (will flow to Login)
+    if (!isLoggedIn) {
+      console.log('🔄 User not logged in, navigating to Marketing1');
       navigationRef.current.reset({
         index: 0,
         routes: [{ name: 'Marketing1' }],
       });
+      console.log('✅ Navigation reset to Marketing1 completed');
+      return;
     }
-  }, [isLoggedIn, isInitializing]);
+
+    // If user is logged in and has completed onboarding (data in Firestore) -> Paywall
+    if (isLoggedIn && isUploadedToFirestore) {
+      console.log('🚀 User logged in with completed onboarding, navigating to Paywall');
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Paywall' }],
+      });
+      return;
+    }
+
+    // If user is logged in but no Firestore data -> Check local onboarding state
+    if (isLoggedIn && !isUploadedToFirestore) {
+      if (shouldResumeOnboarding && currentScreen) {
+        console.log(`🔄 Resuming onboarding at ${currentScreen}`);
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: currentScreen }],
+        });
+      } else {
+        console.log('🆕 Starting fresh onboarding at Name screen');
+        // Start onboarding
+        useOnboardingStore.getState().startOnboarding();
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: 'Name' }],
+        });
+      }
+      return;
+    }
+  };
 
   return (
-    <NavigationContainer ref={navigationRef} theme={AppTheme}>
+    <NavigationContainer 
+      ref={navigationRef} 
+      theme={AppTheme}
+      onReady={() => setIsNavigationReady(true)}
+    >
       <Stack.Navigator
         initialRouteName="Splash"
         screenOptions={{

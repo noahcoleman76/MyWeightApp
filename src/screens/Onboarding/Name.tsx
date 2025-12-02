@@ -1,4 +1,6 @@
 // Name.tsx
+import BackButton from "@/src/components/ui/BackButton";
+import Button from "@/src/components/ui/Button";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import React, { useMemo, useRef, useState } from "react";
 import {
@@ -11,10 +13,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 import { useProfileStore } from "../../state/profileStore";
-import BackButton from "@/src/components/ui/BackButton";
 
 export default function Name() {
+  useOnboardingTracker("Name"); // Track this screen
+  
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const { profile, setName } = useProfileStore();
@@ -105,22 +109,13 @@ export default function Name() {
             You can change this later in Account.
           </Text>
 
-          <Pressable
-            disabled={!isValid}
+          <Button
+            title="Continue"
             onPress={submit}
-            style={({ pressed }) => [
-              styles.cta,
-              {
-                backgroundColor: isValid ? ACCENT : "#E5E7EB",
-                transform: [{ translateY: pressed && isValid ? 1 : 0 }],
-                opacity: isValid ? 1 : 0.7,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !isValid }}
-          >
-            <Text style={styles.ctaText}>Continue</Text>
-          </Pressable>
+            disabled={!isValid}
+            accentColor={ACCENT}
+            style={styles.cta}
+          />
 
         </View>
       </Pressable>
@@ -179,17 +174,6 @@ const styles = StyleSheet.create({
   },
   cta: {
     marginTop: 8,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
     minWidth: 220,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctaText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: 0.3,
   },
 });

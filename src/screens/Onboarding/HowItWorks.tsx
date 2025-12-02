@@ -1,10 +1,11 @@
+import BackButton from "@/src/components/ui/BackButton";
 import { useTheme } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 import { RootStackParamList } from "../../navigation/RootNavigator";
-import BackButton from "@/src/components/ui/BackButton";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OnboardingHowItWorks">;
 
@@ -17,6 +18,7 @@ const BULLETS = [
 ];
 
 export default function HowItWorks({ navigation }: Props) {
+  useOnboardingTracker("OnboardingHowItWorks");
   const { colors } = useTheme();
 
   // Match DateInput palette tokens
