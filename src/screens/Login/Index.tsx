@@ -16,6 +16,7 @@ export default function Login() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   // Clear errors when screen comes into focus
   useFocusEffect(
@@ -71,11 +72,12 @@ export default function Login() {
 
   const handleAppleSignIn = async () => {
     try {
-      console.log('Apple sign-in pressed');
+      setAppleLoading(true);
       await signInWithApple();
-    } catch (e) {
-      console.warn(e);
+    } catch {
       setShowToast(true);
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -90,7 +92,7 @@ export default function Login() {
       {/* Title */}
       <Text style={styles.title}>Log In</Text>
       <Text style={styles.subtitle}>
-        Welcome back. Let's get you logged in.
+        Welcome back. Let&apos;s get you logged in.
       </Text>
 
       {/* Toast for auth errors */}
@@ -146,7 +148,7 @@ export default function Login() {
         style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
         disabled={isLoading}
       >
-        {isLoading ? (
+        {isLoading && !appleLoading ? (
           <ActivityIndicator color="#ffffff" size="small" />
         ) : (
           <Text style={styles.loginButtonText}>Sign In</Text>
@@ -163,13 +165,19 @@ export default function Login() {
           </View>
 
           {/* Apple sign in (iOS only) */}
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-            cornerRadius={14}
-            style={styles.appleButton}
-            onPress={handleAppleSignIn}
-          />
+          {appleLoading ? (
+            <View style={styles.appleButtonLoading}>
+              <ActivityIndicator color="#ffffff" />
+            </View>
+          ) : (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={14}
+              style={styles.appleButton}
+              onPress={handleAppleSignIn}
+            />
+          )}
         </>
       )
       }
@@ -185,7 +193,7 @@ export default function Login() {
         accessibilityLabel="Create new account"
       >
         <Text style={styles.createAccountText}>
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
         </Text>
         <Text style={styles.createAccountLink}>
           Create one
@@ -261,6 +269,15 @@ const styles = StyleSheet.create({
   appleButton: {
     width: '100%',
     height: 48,
+    marginBottom: 24,
+  },
+  appleButtonLoading: {
+    width: '100%',
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 24,
   },
   appleButtonFallback: {
