@@ -1,33 +1,68 @@
-// app/screens/Account/Index.tsx
-import { useTheme } from "@react-navigation/native";
+// src/screens/Account/Index.tsx
+import { MaterialIcons } from "@expo/vector-icons";
+import { useNavigation, useTheme } from "@react-navigation/native";
 import React, { useState } from "react";
 import {
+  Alert,
   Linking,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
 } from "react-native";
-import { useProfileStore } from "../../state/profileStore";
-import { useAuthStore } from "../../state/authStore";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Button from "../../components/ui/Button";
+import { default as ToastComponent } from "../../components/ui/Toast";
+import { FirebaseAuthService } from "../../lib/firebase";
+import { UserDataService } from "../../lib/userDataService";
+import { useAuthStore } from "../../state/authStore";
+import { useProfileStore } from "../../state/profileStore";
 
 export default function Account() {
   const { colors } = useTheme();
-  const primary = colors.primary ?? "#2563eb";
+  const navigation = useNavigation();
+  const primary = colors?.primary ?? "#5eada8";
+  const TEXT = colors?.text ?? "#111827";
+  const CARD_BG = colors?.card ?? "#FFFFFF";
+  const BORDER = colors?.border ?? "#e5e7eb";
 
-  const { profile, setName, setEmail } = useProfileStore();
+  const { profile, setName } = useProfileStore();
   const { user, signOut, deleteAccount, isLoading } = useAuthStore();
   const [name, setNameLocal] = useState(profile.name);
-  const [email, setEmailLocal] = useState(profile.email ?? "");
+  
+  // Update local state when profile changes
+  React.useEffect(() => {
+    setNameLocal(profile.name);
+  }, [profile.name]);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  // Track if there are unsaved changes
+  const hasUnsavedChanges = name.trim() !== profile.name;
 
-  const save = () => {
-    setName(name.trim() || "You");
-    setEmail(email.trim() || undefined);
+  const save = async () => {
+    try {
+      const trimmedName = name.trim() || "You";
+      
+      // Update local stores
+      setName(trimmedName);
+      
+      // Update Firebase Auth displayName and sync to Firestore if user is logged in
+      if (user?.uid) {
+        // Update Firebase Auth displayName
+        await FirebaseAuthService.updateDisplayName(trimmedName);
+        
+        // Sync to Firestore
+        await UserDataService.syncToFirestore(user.uid);
+        setSaveSuccess(true);
+      } else {
+        setSaveSuccess(true);
+      }
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+    }
   };
 
   const handleLogout = () => {
@@ -46,7 +81,7 @@ export default function Account() {
             try {
               await signOut();
               // Navigation will be handled by auth state change
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to sign out. Please try again.");
             }
           },
@@ -82,9 +117,16 @@ export default function Account() {
                   style: "destructive",
                   onPress: async () => {
                     try {
+                      // Delete user data from Firestore first
+                      if (user?.uid) {
+                        await UserDataService.deleteAllUserData(user.uid);
+                      }
+                      
+                      // Then delete the Firebase Auth account
                       await deleteAccount();
                       // Navigation will be handled by auth state change
                     } catch (error) {
+                      console.error("Failed to delete account:", error);
                       Alert.alert(
                         "Error", 
                         "Failed to delete account. You might need to re-authenticate and try again."
@@ -101,136 +143,159 @@ export default function Account() {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
-      <ScrollView contentContainerStyle={s.scroll}>
+    <SafeAreaView style={[s.safe, { backgroundColor: colors?.background ?? "#f3f4f6" }]}>
+      <ToastComponent
+        message="Profile updated successfully!"
+        type="success"
+        visible={saveSuccess}
+        onDismiss={() => setSaveSuccess(false)}
+      />
+
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={s.header}>
-          <Text style={s.title}>Account</Text>
+          <Text style={[s.title, { color: TEXT }]}>Account</Text>
+          <Text style={[s.subtitle, { color: TEXT }]}>
+            Manage your profile and settings
+          </Text>
         </View>
 
-        {/* Account details card */}
-        <View style={s.full}>
-          <View style={[s.card, { borderColor: "#e5e7eb", backgroundColor: "#fff" }]}>
-            {/* Name */}
-            <Text style={s.label}>Name</Text>
-            <TextInput
-              value={name}
-              onChangeText={setNameLocal}
-              style={s.input}
-              placeholder="Your name"
-              placeholderTextColor="#9ca3af"
-            />
-
-            {/* Email */}
-            <View style={{ marginTop: 16 }}>
-              <Text style={s.label}>Email</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmailLocal}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={s.input}
-                placeholder="you@example.com"
-                placeholderTextColor="#9ca3af"
-              />
-            </View>
-
-            {/* Save button */}
-            <View style={{ marginTop: 20 }}>
-              <TouchableOpacity
-                onPress={save}
-                style={[modalStyles.cta, { flex: undefined, backgroundColor: primary }]}
+        {/* User Info Header */}
+        {user && (
+          <View style={s.userHeader}>
+            <View style={[s.userHeaderCard, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
+              {/* Edit Icon */}
+              <TouchableOpacity 
+                style={s.editIcon}
+                onPress={() => setIsEditMode(!isEditMode)}
               >
-                <Text style={modalStyles.ctaText}>Save</Text>
+                <MaterialIcons 
+                  name={isEditMode ? "close" : "edit"} 
+                  size={20} 
+                  color={primary} 
+                />
               </TouchableOpacity>
+              
+              <View style={s.avatarContainer}>
+                <View style={[s.avatar, { backgroundColor: primary }]}>
+                  <Text style={s.avatarText}>
+                    {(profile.name || "U").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[s.userName, { color: TEXT }]}>
+                {profile.name || "User"}
+              </Text>
+              <Text style={[s.userEmail, { color: "#6b7280" }]}>
+                {user.email}
+              </Text>
+              
+
+              
+              {/* Collapsible Edit Section */}
+              {isEditMode && (
+                <View style={[s.editSection, { borderTopColor: BORDER }]}>
+                  <Text style={[s.editSectionTitle, { color: TEXT }]}>Update Display Name</Text>
+                  
+                  <View style={s.editInputContainer}>
+                    <TextInput
+                      value={name}
+                      onChangeText={setNameLocal}
+                      style={[s.editInput, { borderColor: primary, backgroundColor: CARD_BG, color: TEXT }]}
+                      placeholder="Enter your display name"
+                      placeholderTextColor="#9ca3af"
+                    />
+                  </View>
+
+                  {hasUnsavedChanges && (
+                    <View style={s.editActions}>
+                      <Button
+                        title="Update"
+                        onPress={() => {
+                          save();
+                          setIsEditMode(false);
+                        }}
+                        variant="primary"
+                        accentColor={primary}
+                        style={s.updateButton}
+                      />
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
           </View>
-        </View>
+        )}
 
-        {/* Help & Legal card */}
+        {/* Help & Legal Section */}
         <View style={s.full}>
-          <View style={[s.card, { borderColor: "#e5e7eb", backgroundColor: "#fff" }]}>
-            <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 12 }}>Help &amp; Legal</Text>
+          <View style={[s.card, { borderColor: BORDER, backgroundColor: CARD_BG }]}>
+            <Text style={[s.sectionTitle, { color: TEXT }]}>Help &amp; Support</Text>
 
-            <View style={{ gap: 10 }}>
+            <View style={s.linkGroup}>
               {/* Contact Support */}
               <TouchableOpacity
-                style={[modalStyles.linkBtn, { borderColor: "#e5e7eb", backgroundColor: "#f9fafb" }]}
+                style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
                 onPress={() =>
                   Linking.openURL(
                     `mailto:support@myweightapp.com?subject=MyWeight%20Support`
                   )
                 }
               >
-                <Text style={modalStyles.linkText}>Contact Support</Text>
+                <View style={s.linkContent}>
+                  <MaterialIcons name="email" size={20} color={primary} />
+                  <Text style={[s.linkText, { color: TEXT }]}>Contact Support</Text>
+                </View>
               </TouchableOpacity>
 
               {/* Privacy Policy */}
               <TouchableOpacity
-                style={[modalStyles.linkBtn, { borderColor: "#e5e7eb", backgroundColor: "#f9fafb" }]}
-                onPress={() => Linking.openURL("https://myweightapp.com/privacy")}
+                style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
+                onPress={() => navigation.navigate("PrivacyPolicy" as never)}
               >
-                <Text style={modalStyles.linkText}>Privacy Policy</Text>
+                <View style={s.linkContent}>
+                  <MaterialIcons name="privacy-tip" size={20} color={primary} />
+                  <Text style={[s.linkText, { color: TEXT }]}>Privacy Policy</Text>
+                </View>
               </TouchableOpacity>
 
               {/* Terms of Use */}
               <TouchableOpacity
-                style={[modalStyles.linkBtn, { borderColor: "#e5e7eb", backgroundColor: "#f9fafb" }]}
-                onPress={() => Linking.openURL("https://myweightapp.com/terms")}
+                style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
+                onPress={() => navigation.navigate("TermsOfUse" as never)}
               >
-                <Text style={modalStyles.linkText}>Terms of Use</Text>
+                <View style={s.linkContent}>
+                  <MaterialIcons name="description" size={20} color={primary} />
+                  <Text style={[s.linkText, { color: TEXT }]}>Terms of Use</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* Authentication section */}
+        {/* Account Management Section */}
         <View style={s.full}>
-          <View style={[s.card, { borderColor: "#e5e7eb", backgroundColor: "#fff" }]}>
-            <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 12 }}>Account</Text>
+          <View style={[s.card, { borderColor: BORDER, backgroundColor: CARD_BG }]}>
+            <Text style={[s.sectionTitle, { color: TEXT }]}>Account Management</Text>
             
-            {user && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 14, color: "#6b7280", marginBottom: 4 }}>
-                  Signed in as
-                </Text>
-                <Text style={{ fontSize: 16, fontWeight: "600" }}>
-                  {user.displayName || "User"}
-                </Text>
-                <Text style={{ fontSize: 14, color: "#6b7280" }}>
-                  {user.email}
-                </Text>
-              </View>
-            )}
-            
-            <View style={{ gap: 10 }}>
-              <TouchableOpacity
+            <View style={s.linkGroup}>
+              <Button
+                title={isLoading ? "Signing Out..." : "Sign Out"}
                 onPress={handleLogout}
                 disabled={isLoading}
-                style={[modalStyles.linkBtn, { 
-                  borderColor: "#dc2626", 
-                  backgroundColor: "#fef2f2",
-                  opacity: isLoading ? 0.5 : 1 
-                }]}
-              >
-                <Text style={[modalStyles.linkText, { color: "#dc2626" }]}>
-                  {isLoading ? "Signing Out..." : "Sign Out"}
-                </Text>
-              </TouchableOpacity>
+                variant="ghost"
+                accentColor="#dc2626"
+                style={{ backgroundColor: "#fef2f2" }}
+              />
 
-              <TouchableOpacity
+              <Button
+                title={isLoading ? "Processing..." : "Delete Account"}
                 onPress={handleDeleteAccount}
                 disabled={isLoading}
-                style={[modalStyles.linkBtn, { 
-                  borderColor: "#991b1b", 
-                  backgroundColor: "#fef2f2",
-                  opacity: isLoading ? 0.3 : 1 
-                }]}
-              >
-                <Text style={[modalStyles.linkText, { color: "#991b1b", fontWeight: "700" }]}>
-                  {isLoading ? "Processing..." : "Delete Account"}
-                </Text>
-              </TouchableOpacity>
+                variant="ghost"
+                accentColor="#991b1b"
+                style={{ backgroundColor: "#fee2e2", opacity: isLoading ? 0.5 : 1 }}
+              />
             </View>
           </View>
         </View>
@@ -251,6 +316,16 @@ const s = StyleSheet.create({
     alignItems: "flex-start",
   },
   title: { fontSize: 34, fontWeight: "800" },
+  subtitle: { 
+    fontSize: 16, 
+    marginTop: 4,
+    fontWeight: "400" 
+  },
+  sectionTitle: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    marginBottom: 16 
+  },
 
   full: { marginHorizontal: 20, marginBottom: 16 },
   card: {
@@ -265,6 +340,25 @@ const s = StyleSheet.create({
   },
 
   label: { fontSize: 14, color: "#6b7280", fontWeight: "600" },
+  inputGroup: { marginBottom: 20 },
+  linkGroup: { gap: 12 },
+  linkButton: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: "flex-start",
+  },
+  linkText: { 
+    fontSize: 16, 
+    fontWeight: "600" 
+  },
+  linkContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
 
   chipsRow: { flexDirection: "row", gap: 10, marginTop: 8 },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
@@ -294,103 +388,112 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-});
 
-const chipStyles = StyleSheet.create({
-  base: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
+  
+  // New user header styles
+  userHeader: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  text: { fontSize: 14, fontWeight: "600" },
-});
-
-const tileStyles = StyleSheet.create({
-  card: {
-    width: "48%",
-    marginBottom: 12,
-    minHeight: 94,
-    justifyContent: "center",
+  userHeaderCard: {
     borderRadius: 24,
     borderWidth: 1,
-    padding: 16,
+    padding: 32,
+    alignItems: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+    overflow: "hidden",
   },
-  title: { fontSize: 16, fontWeight: "600" },
-  value: { fontSize: 26, fontWeight: "800", marginTop: 4 },
-  sub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
-  warning: {
-    fontSize: 11,
-    color: "#ef4444",
-    marginTop: 4,
+  avatarContainer: {
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  userEmail: {
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  
+  // Collapsible edit section styles
+  editSection: {
+    width: "100%",
+    borderTopWidth: 1,
+    paddingTop: 24,
+    marginTop: 16,
+  },
+  editSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  editInputContainer: {
+    marginBottom: 20,
+  },
+  editInput: {
+    borderWidth: 2,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    fontSize: 20,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  editActions: {
+    alignItems: "center",
+  },
+  updateButton: {
+    minWidth: 120,
+  },
+  
+  // Edit icon styles
+  editIcon: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
 });
 
-const modalStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
-  },
-  card: {
-    width: "92%",
-    maxWidth: 360,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "stretch",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  pickerBox: {
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: "hidden",
-    alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
-  picker: {
-    width: "100%",
-    transform: Platform.select({
-      ios: [{ scale: 0.98 }],
-      android: [{ scale: 0.95 }],
-      default: [{ scale: 0.95 }],
-    }) as any,
-  },
-  actions: {
-    marginTop: 12,
-    gap: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  linkBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  linkText: { fontSize: 14, fontWeight: "600", color: "#6b7280" },
-  cta: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctaText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-});
+
+
+
+
+

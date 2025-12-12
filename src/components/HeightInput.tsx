@@ -69,12 +69,14 @@ export default function HeightInput({
   }, [inchesStr]);
 
   const feetValid = !Number.isNaN(feet) && feet >= minFeet && feet <= maxFeet;
-  const inchesValid = !Number.isNaN(inches) && inches >= 1 && inches <= 12;
+  const inchesValid = !Number.isNaN(inches) && inches >= 0 && inches < 12; // Allow 0-11 inches
 
   const bothProvided = feetStr !== "" && inchesStr !== "";
   const isValid = bothProvided && feetValid && inchesValid;
 
   const totalInches = isValid ? feet * 12 + inches : NaN;
+
+  console.log('📐 HeightInput state:', { feetStr, inchesStr, feet, inches, totalInches, isValid });
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -166,10 +168,10 @@ export default function HeightInput({
           {showHelperText && bothProvided && (!feetValid || !inchesValid) ? (
             <Text style={[styles.helper, { color: "#ef4444" }]}>
               {!feetValid && !inchesValid
-                ? `Enter feet between ${minFeet}–${maxFeet} and inches between 1–12.`
+                ? `Enter feet between ${minFeet}–${maxFeet} and inches between 0–11.`
                 : !feetValid
                 ? `Enter feet between ${minFeet}–${maxFeet}.`
-                : `Enter inches between 1–12.`}
+                : `Enter inches between 0–11.`}
             </Text>
           ) : null}
 

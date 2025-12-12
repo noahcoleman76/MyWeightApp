@@ -14,6 +14,7 @@ const START_DAY_KEY = "start_day_iso"; // YYYY-MM-DD
 export default function CurrentWeight() {
   useOnboardingTracker("CurrentWeight");
   const setStartingWeightKg = useProfileStore((s) => s.setStartingWeightKg);
+  const setCurrentWeightKg = useProfileStore((s) => s.setCurrentWeightKg);
   const nav = useNavigation<any>();
   const mode = useGoalStore((s) => s.mode);
 
@@ -22,8 +23,16 @@ export default function CurrentWeight() {
       title="Current weight"
       placeholder="Pounds"
       onConfirm={(lb) => {
-        // 1) Save starting weight
-        setStartingWeightKg(lbToKg(lb));
+        const weightKg = lbToKg(lb);
+        console.log('⚖️ CurrentWeight: Converting and storing', { 
+          inputLbs: lb, 
+          convertedKg: weightKg,
+          formula: `${lb} * 0.45359237 = ${weightKg}`
+        });
+        
+        // 1) Save both starting and current weight
+        setStartingWeightKg(weightKg);
+        setCurrentWeightKg(weightKg);
 
         // 2) Persist start day ONCE (first time they set starting weight)
         const existing = getItem(START_DAY_KEY);

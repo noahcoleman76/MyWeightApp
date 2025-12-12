@@ -2,7 +2,7 @@ import dayjs from "dayjs";
 import { nanoid } from "nanoid/non-secure";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { LogService } from "../lib/firebase";
+import { LogService, StreakService } from "../lib/firebase";
 import { getItem, removeItem, setItem } from "../lib/mmkv";
 
 export interface LogEntry {
@@ -107,6 +107,23 @@ export const useLogStore = create<LogStore>()(
               tempId, 
               firebaseId 
             });
+            
+            // Update streak after successful log creation
+            try {
+              await StreakService.updateStreakOnLog(userId, newEntry.dateISO);
+              
+              // Immediately fetch and update local streak
+              const { FirestoreService } = await import('../lib/firebase');
+              const userData = await FirestoreService.getUserData(userId);
+              if (userData?.streak) {
+                const { useProfileStore } = await import('./profileStore');
+                useProfileStore.getState().setStreak(userData.streak);
+                console.log('🔥 Streak updated and synced locally:', userData.streak);
+              }
+            } catch (streakError) {
+              console.error('❌ Failed to update streak:', streakError);
+              // Non-blocking - log creation succeeded
+            }
           } catch (error) {
             console.error('❌ Failed to sync entry to Firebase:', error);
             // Entry remains in local state but marked as not synced

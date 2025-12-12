@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { getItem, removeItem, setItem } from "../lib/mmkv";
+import { StreakData } from "../lib/firebase";
 
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "high";
 export type WeightUnit = "lb" | "kg";
@@ -20,6 +21,7 @@ export interface Profile {
   heightUnit?: HeightUnit;     // display preference
   motivation?: string[];
   concerns?: string[];
+  streak?: StreakData;         // Streak data synced from backend
 }
 
 type ProfileStore = {
@@ -35,6 +37,7 @@ type ProfileStore = {
   setUnits: (w: WeightUnit, h: HeightUnit) => void;
   setMotivation: (vals: string[]) => void;
   setConcerns: (vals: string[]) => void;
+  setStreak: (streak: StreakData) => void;  // NEW
   reset: () => void;
 };
 
@@ -69,12 +72,13 @@ export const useProfileStore = create<ProfileStore>()(
       setUnits: (weightUnit, heightUnit) => set((s) => ({ profile: { ...s.profile, weightUnit, heightUnit } })),
       setMotivation: (motivation) => set((s) => ({ profile: { ...s.profile, motivation } })),
       setConcerns: (concerns) => set((s) => ({ profile: { ...s.profile, concerns } })),
+      setStreak: (streak) => set((s) => ({ profile: { ...s.profile, streak } })),  // NEW
       reset: () => set({ profile: defaultProfile }),
     }),
     {
       name: "profileStore",
       storage: createJSONStorage(() => ({ getItem, setItem, removeItem })),
-      version: 4, // bumped due to new field
+      version: 5, // bumped due to streak field
       migrate: (persisted: any, _v) => {
         // If migrating from older versions, fill startingWeightKg if missing
         if (persisted?.state?.profile && persisted.state.profile.startingWeightKg == null) {

@@ -15,7 +15,16 @@ export default function Height() {
       title="What is your height?"
       suffix="You can change units later"
       onConfirm={(totalInches: number) => {
-        setHeightCm(inToCm(totalInches));
+        const heightCm = inToCm(totalInches);
+        const feet = Math.floor(totalInches / 12);
+        const inches = totalInches % 12;
+        console.log('📏 Height: Converting and storing', { 
+          inputInches: totalInches,
+          feetInches: `${feet}' ${inches}"`,
+          convertedCm: heightCm,
+          formula: `${totalInches} * 2.54 = ${heightCm}`
+        });
+        setHeightCm(heightCm);
         nav.navigate("CurrentWeight");
       }}
     />

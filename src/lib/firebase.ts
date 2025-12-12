@@ -3,6 +3,11 @@ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+
+// Extend dayjs with UTC plugin
+dayjs.extend(utc);
 
 export interface AuthUser {
   uid: string;
@@ -300,6 +305,14 @@ export class AuthValidation {
   }
 }
 
+// Streak data interface
+export interface StreakData {
+  current: number;              // Current consecutive days
+  longest: number;              // All-time best streak
+  lastLoggedDateISO: string;    // YYYY-MM-DD (last day user logged)
+  updatedAt: string;            // ISO timestamp
+}
+
 // User data types for Firestore
 export interface FirestoreUserData {
   // Profile data
@@ -322,6 +335,9 @@ export interface FirestoreUserData {
   goalWeightKg?: number;
   targetDateISO?: string;
   dailyTargetOverride?: number;
+  
+  // Streak data (NEW)
+  streak?: StreakData;
   
   // Metadata
   createdAt: string; // ISO timestamp
@@ -662,4 +678,85 @@ export class FirestoreService {
       throw new Error('Failed to update user data');
     }
   }
+}
+
+/**
+ * Firebase Streak Service
+ * Handles streak calculations and updates
+ */
+export class StreakService {
+  /**
+   * Initialize streak data for new users
+   */
+  static initializeStreak(): StreakData {
+    return {
+      current: 0,
+      longest: 0,
+      lastLoggedDateISO: '',
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  
+  /**
+   * Update user's streak when they create a log entry
+   * Simple calculation: consecutive days only, no grace period
+   */
+  static async updateStreakOnLog(userId: string, logDateISO: string): Promise<void> {
+    try {
+      console.log('🔥 Updating streak for user:', { userId, logDateISO });
+      
+      // Get current user data
+      const userData = await FirestoreService.getUserData(userId);
+      
+      if (!userData) {
+        console.error('❌ User data not found for streak update');
+        throw new Error('User data not found');
+      }
+      
+      const currentStreak = userData.streak || this.initializeStreak();
+      const today = dayjs().format('YYYY-MM-DD');
+      const lastLogged = currentStreak.lastLoggedDateISO;
+      
+      // Don't update if already logged today
+      if (lastLogged === today) {
+        console.log('ℹ️ Already logged today, streak unchanged');
+        return;
+      }
+      
+      // Calculate new streak value
+      const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+      let newStreakValue: number;
+      
+      if (!lastLogged || lastLogged === '') {
+        // First log ever
+        newStreakValue = 1;
+      } else if (lastLogged === yesterday) {
+        // Logged yesterday - continue streak
+        newStreakValue = currentStreak.current + 1;
+      } else {
+        // Gap > 1 day - start new streak
+        newStreakValue = 1;
+      }
+      
+      // Update longest streak if needed
+      const newLongest = Math.max(currentStreak.longest, newStreakValue);
+      
+      // Update streak data in Firestore
+      const updatedStreak: StreakData = {
+        current: newStreakValue,
+        longest: newLongest,
+        lastLoggedDateISO: today,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      await FirestoreService.updateUserData(userId, { streak: updatedStreak });
+      
+      console.log('✅ Streak updated:', { current: newStreakValue, longest: newLongest });
+    } catch (error) {
+      console.error('❌ Failed to update streak:', error);
+      throw error;
+    }
+  }
+  
+
 }

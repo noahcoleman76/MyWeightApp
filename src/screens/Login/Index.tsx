@@ -3,6 +3,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AuthInput } from "../../components/ui/AuthInput";
+import Button from "../../components/ui/Button";
 import { Toast } from "../../components/ui/Toast";
 import { AuthValidation } from "../../lib/firebase";
 import { useAuthStore } from "../../state/authStore";
@@ -143,17 +144,14 @@ export default function Login() {
       </View>
 
       {/* Primary button */}
-      <Pressable
+      <Button
+        title="Sign In"
         onPress={onLogin}
-        style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+        variant="primary"
+        loading={isLoading && !appleLoading}
         disabled={isLoading}
-      >
-        {isLoading && !appleLoading ? (
-          <ActivityIndicator color="#ffffff" size="small" />
-        ) : (
-          <Text style={styles.loginButtonText}>Sign In</Text>
-        )}
-      </Pressable>
+        style={styles.loginButton}
+      />
 
       {Platform.OS === "ios" && (
         <>
@@ -182,23 +180,19 @@ export default function Login() {
       )
       }
 
-      {/* Don’t have an account */}
-      <Pressable
-        onPress={() => nav.navigate("CreateAccount" as never)}
-        style={({ pressed }) => [
-          styles.createAccountContainer,
-          pressed && styles.createAccountPressed
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel="Create new account"
-      >
+      {/* Don't have an account */}
+      <View style={styles.createAccountContainer}>
         <Text style={styles.createAccountText}>
           Don&apos;t have an account?{" "}
         </Text>
-        <Text style={styles.createAccountLink}>
-          Create one
-        </Text>
-      </Pressable>
+        <Pressable onPress={() => nav.navigate("CreateAccount" as never)}>
+          {({ pressed }) => (
+            <Text style={[styles.createAccountLink, { opacity: pressed ? 0.6 : 1, textDecorationLine: "underline" }]}>
+              Create one.
+            </Text>
+          )}
+        </Pressable>
+      </View>
     </ScrollView >
   );
 }

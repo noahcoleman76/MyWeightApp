@@ -5,13 +5,14 @@ import {
   Dimensions,
   Easing,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import BackButton from "./ui/BackButton";
+import Button from "./ui/Button";
 
 type Props = {
   image?: any;
@@ -86,27 +87,40 @@ export default function OnboardSlide({
           <Text style={styles.title}>{title}</Text>
 
           {/* Big accent CTA with shadow */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[styles.ctaButton, styles.ctaShadow, { backgroundColor: ACCENT }]}
+          <Button
+            title={cta}
             onPress={() => nav.navigate(nextRoute)}
-          >
-            <Text style={styles.ctaText}>{cta}</Text>
-          </TouchableOpacity>
+            variant="primary"
+            accentColor={ACCENT}
+            style={styles.ctaButtonWithShadow}
+          />
 
           {showLoginLink && (
-            <TouchableOpacity
-              style={styles.loginLink}
-              onPress={() => nav.navigate("Login" as never)}
-              activeOpacity={0.7}
-            >
+            <View style={styles.loginLink}>
               <Text style={styles.loginText}>
                 Already have an account?{" "}
-                <Text style={[styles.loginText, { color: LOGIN_BLUE, fontWeight: "700" }]}>
-                  Log in.
-                </Text>
               </Text>
-            </TouchableOpacity>
+              <Pressable
+                onPress={() => nav.navigate("Login" as never)}
+                style={{ marginTop: -2 }}
+              >
+                {({ pressed }) => (
+                  <Text
+                    style={[
+                      styles.loginText,
+                      {
+                        color: LOGIN_BLUE,
+                        fontWeight: "700",
+                        textDecorationLine: "underline",
+                        opacity: pressed ? 0.6 : 1
+                      }
+                    ]}
+                  >
+                    Log in.
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           )}
         </View>
       </Animated.View>
@@ -185,6 +199,17 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
+  ctaButtonWithShadow: {
+    marginTop: 24,
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 8,
+  },
   ctaText: {
     color: "#fff",
     fontSize: 16,
@@ -193,6 +218,8 @@ const styles = StyleSheet.create({
   loginLink: {
     marginTop: 14,
     alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
   },
   loginText: {
     fontSize: 12,

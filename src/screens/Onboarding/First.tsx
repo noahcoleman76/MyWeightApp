@@ -1,7 +1,8 @@
 import BackButton from "@/src/components/ui/BackButton";
+import Button from "@/src/components/ui/Button";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function First() {
@@ -27,21 +28,17 @@ export default function First() {
 
         {/* Helper blurb */}
         <Text style={[styles.blurb, { color: SUBTLE }]}>
-          We’ll guide your daily targets and help you stay consistent.
+          We&apos;ll guide your daily targets and help you stay consistent.
         </Text>
 
-        {/* Primary CTA — mirrors DateInput.cta */}
-        <Pressable
+        {/* Primary CTA using Button component */}
+        <Button
+          title="Get Started"
           onPress={proceed}
-          style={({ pressed }) => [
-            styles.cta,
-            { backgroundColor: ACCENT, opacity: pressed ? 0.9 : 1 },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Get Started"
-        >
-          <Text style={styles.ctaText}>Get Started</Text>
-        </Pressable>
+          variant="primary"
+          accentColor={ACCENT}
+          style={styles.cta}
+        />
       </View>
     </SafeAreaView>
   );

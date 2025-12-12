@@ -1,9 +1,10 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import AuthInput from "../../components/ui/AuthInput";
-import Toast from "../../components/ui/Toast";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AuthInput } from "../../components/ui/AuthInput";
+import Button from "../../components/ui/Button";
+import { Toast } from "../../components/ui/Toast";
 import { AuthValidation } from "../../lib/firebase";
 import { useAuthStore } from "../../state/authStore";
 
@@ -36,11 +37,11 @@ export default function CreateAccount() {
     const usernameValidation = AuthValidation.validateUsername(username);
     const emailValidation = AuthValidation.validateEmail(email);
     const passwordValidation = AuthValidation.validatePassword(password);
-    
+
     setUsernameError(usernameValidation);
     setEmailError(emailValidation);
     setPasswordError(passwordValidation);
-    
+
     return !usernameValidation && !emailValidation && !passwordValidation;
   };
 
@@ -49,7 +50,7 @@ export default function CreateAccount() {
     // Clear previous errors
     clearSignupError();
     setShowToast(false);
-    
+
     // Validate inputs
     if (!validateInputs()) {
       console.log('❌ Validation failed');
@@ -127,7 +128,7 @@ export default function CreateAccount() {
           editable={!isLoading}
           required
         />
-        
+
         <AuthInput
           label="Email Address"
           placeholder="Enter your email"
@@ -145,7 +146,7 @@ export default function CreateAccount() {
           editable={!isLoading}
           required
         />
-        
+
         <AuthInput
           label="Password"
           placeholder="Create a strong password"
@@ -166,17 +167,14 @@ export default function CreateAccount() {
       </View>
 
       {/* Primary button */}
-      <Pressable
+      <Button
+        title="Create Account"
         onPress={onCreate}
-        style={[styles.createButton, isLoading && styles.createButtonDisabled]}
+        variant="primary"
+        loading={isLoading && !appleLoading}
         disabled={isLoading}
-      >
-        {isLoading && !appleLoading ? (
-          <ActivityIndicator color="#ffffff" size="small" />
-        ) : (
-          <Text style={styles.createButtonText}>Create Account</Text>
-        )}
-      </Pressable>
+        style={styles.createButton}
+      />
 
       {Platform.OS === "ios" && (
         <>
@@ -205,37 +203,41 @@ export default function CreateAccount() {
       )}
 
       {/* Already have an account */}
-      <Pressable
-        onPress={() => nav.navigate("Login" as never)}
-        style={styles.loginContainer}
-      >
+      <View style={styles.loginContainer}>
         <Text style={styles.loginText}>
           Already have an account?{" "}
         </Text>
-        <Text style={styles.loginLink}>
-          Log In
-        </Text>
-      </Pressable>
+        <Pressable onPress={() => nav.navigate("Login" as never)}>
+          {({ pressed }) => (
+            <Text style={[styles.loginLink, { opacity: pressed ? 0.6 : 1, textDecorationLine: "underline" }]}>
+              Log in.
+            </Text>
+          )}
+        </Pressable>
+      </View>
 
       {/* Footer legal */}
-      <Text style={styles.legalText}>
-        By creating an account, you indicate that you have read and agree to the{" "}
-        <Text
-          style={styles.legalLink}
-          onPress={() => Linking.openURL("https://MyWeightApp.com/PrivacyPolicy")}
-        >
-          Privacy Policy
-        </Text>{" "}
-        and{" "}
-        <Text
-          style={styles.legalLink}
-          onPress={() => Linking.openURL("https://MyWeightApp.com/TermsOfUse")}
-        >
-          Terms of Use
+      <View style={styles.legalContainer}>
+        <Text style={styles.legalText}>
+          By creating an account, you indicate that you have read and agree to the{" "}
         </Text>
-        .
-      </Text>
-
+        <Pressable onPress={() => nav.navigate("PrivacyPolicy" as never)}>
+          {({ pressed }) => (
+            <Text style={[styles.legalLink, { opacity: pressed ? 0.6 : 1 }]}>
+              Privacy Policy
+            </Text>
+          )}
+        </Pressable>
+        <Text style={styles.legalText}> and </Text>
+        <Pressable onPress={() => nav.navigate("TermsOfUse" as never)}>
+          {({ pressed }) => (
+            <Text style={[styles.legalLink, { opacity: pressed ? 0.6 : 1 }]}>
+              Terms of Use
+            </Text>
+          )}
+        </Pressable>
+        <Text style={styles.legalText}>.</Text>
+      </View>
 
     </ScrollView>
   );
@@ -339,15 +341,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+  legalContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 40,
+    paddingHorizontal: 20,
+  },
   legalText: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 40,
     textAlign: 'center',
     lineHeight: 20,
   },
   legalLink: {
+    fontSize: 12,
+    color: '#5eada8',
+    fontWeight: '600',
     textDecorationLine: 'underline',
+    lineHeight: 20,
   },
   createButtonDisabled: {
     opacity: 0.7,

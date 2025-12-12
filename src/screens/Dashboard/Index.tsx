@@ -6,11 +6,9 @@ import {
   useNavigation,
   useTheme,
 } from "@react-navigation/native";
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +16,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Button from "../../components/ui/Button";
+import { Toast } from "../../components/ui/Toast";
 
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -40,6 +40,9 @@ import { getItem, setItem } from "../../lib/mmkv";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
+import { useStreakSync } from "../../hooks/useStreakSync";
+import { useAuthStore } from "../../state/authStore";
+import { FirestoreService } from "../../lib/firebase";
 
 // ─────────────────────────── Setup ───────────────────────────
 dayjs.extend(customParseFormat);
@@ -78,10 +81,41 @@ export default function Dashboard() {
     winW - SCREEN_MARGIN * 2 - CARD_PADDING * 2 - WRAP_PADDING * 2
   );
 
+  // ── Sync streak data from backend
+  useStreakSync();
+  
+  // ── Refresh streak when Dashboard comes into focus
+  const user = useAuthStore((s) => s.user);
+  const setStreak = useProfileStore((s) => s.setStreak);
+  
+  useFocusEffect(
+    useCallback(() => {
+      const refreshStreak = async () => {
+        if (!user) return;
+        
+        try {
+          const userData = await FirestoreService.getUserData(user.uid);
+          if (userData?.streak) {
+            setStreak(userData.streak);
+            console.log('🔥 Streak refreshed on Dashboard focus:', userData.streak);
+          }
+        } catch (error) {
+          console.error('❌ Failed to refresh streak:', error);
+        }
+      };
+      
+      refreshStreak();
+    }, [user, setStreak])
+  );
+
   // ── Store hooks
   const { profile } = useProfileStore();
   const { goalWeightKg, targetDateISO, dailyTargetOverride, mode } = useGoalStore();
-  const { logs, streak } = useLogStore();
+  const { logs, streak: calculateStreak } = useLogStore(); // Keep frontend calc as fallback
+
+  // Use backend streak from profile, fallback to calculated if not available
+  const currentStreak = profile.streak?.current ?? calculateStreak();
+  const longestStreak = profile.streak?.longest ?? 0;
 
   const resetProfile = useProfileStore((s) => s.reset);
   const resetGoal = useGoalStore((s) => s.reset);
@@ -89,6 +123,11 @@ export default function Dashboard() {
   const resetSub = useSubscriptionStore((s) => s.reset);
   const setLoggedIn = useAppStore((s) => s.setLoggedIn);
   const setOnboardingDone = useAppStore((s) => s.setOnboardingDone);
+
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState<"success" | "error">("success");
 
   // ── Theme colors
   const ACCENT = colors?.primary ?? "#5eada8";
@@ -101,8 +140,10 @@ export default function Dashboard() {
   const DISPLAY_UNIT: "kg" | "lb" =
     profile.weightUnit === "kg" ? "kg" : "lb";
 
-  const toDisplay = (kg: number) =>
-    DISPLAY_UNIT === "kg" ? round1(kg) : toLb(kg);
+  const toDisplay = useCallback(
+    (kg: number) => (DISPLAY_UNIT === "kg" ? round1(kg) : toLb(kg)),
+    [DISPLAY_UNIT]
+  );
 
   // ─────────────────────────── Effects ───────────────────────────
 
@@ -168,8 +209,8 @@ export default function Dashboard() {
           ? 1
           : -1
         : a.dateISO > b.dateISO
-        ? 1
-        : -1
+          ? 1
+          : -1
     );
     return withWt[0].dateISO;
   }, [logs]);
@@ -219,8 +260,8 @@ export default function Dashboard() {
             ? 1
             : -1
           : a.dateISO > b.dateISO
-          ? 1
-          : -1
+            ? 1
+            : -1
       );
 
     const pts: { x: Date; y: number }[] = [];
@@ -273,8 +314,8 @@ export default function Dashboard() {
     logs,
     profile.startingWeightKg,
     profile.currentWeightKg,
-    profile.weightUnit,
     anchorStartISO,
+    toDisplay,
   ]);
 
   // Pin X domain so Victory doesn't auto-rescale across rerenders
@@ -371,8 +412,8 @@ export default function Dashboard() {
           ? 1
           : -1
         : a.dateISO < b.dateISO
-        ? 1
-        : -1
+          ? 1
+          : -1
     );
 
     return {
@@ -493,47 +534,41 @@ export default function Dashboard() {
       : `${toLb(currentWeightKg)} ${lbUnit}`;
 
   const hasStart = profile.startingWeightKg != null;
-  const deltaFromStartLb = hasStart
-    ? toLb(currentWeightKg - (profile.startingWeightKg as number))
+  const deltaFromStart = hasStart
+    ? toDisplay(currentWeightKg - (profile.startingWeightKg as number))
     : undefined;
 
   const lostOrGainedLabel =
-    deltaFromStartLb != null
-      ? deltaFromStartLb < 0
+    deltaFromStart != null
+      ? deltaFromStart < 0
         ? "Weight Lost"
-        : deltaFromStartLb > 0
-        ? "Weight Gained"
-        : "Weight Change"
+        : deltaFromStart > 0
+          ? "Weight Gained"
+          : "Weight Change"
       : undefined;
 
-  // Avoid calling streak() twice in JSX
-  const streakCount = streak();
+  // Use backend streak (already computed above)
+  // No need to recalculate on every render
 
   // ─────────────────────────── Handlers ───────────────────────────
   const handleResetAll = () => {
-    Alert.alert(
-      "Reset all data?",
-      "This will erase onboarding, logs, and login state.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: () => {
-            resetProfile?.();
-            resetGoal?.();
-            resetLogs?.();
-            resetSub?.();
-            setLoggedIn?.(false);
-            setOnboardingDone?.(false);
-            nav.reset({
-              index: 0,
-              routes: [{ name: "Splash" }],
-            });
-          },
-        },
-      ]
-    );
+    // Note: This is a testing function and should be removed in production
+    resetProfile?.();
+    resetGoal?.();
+    resetLogs?.();
+    resetSub?.();
+    setLoggedIn?.(false);
+    setOnboardingDone?.(false);
+    setToastMessage("All data has been reset");
+    setToastType("success");
+    setToastVisible(true);
+
+    setTimeout(() => {
+      nav.reset({
+        index: 0,
+        routes: [{ name: "Splash" }],
+      });
+    }, 1000);
   };
 
   // ─────────────────────────── Render ───────────────────────────
@@ -576,9 +611,14 @@ export default function Dashboard() {
                   { color: TEXT },
                 ]}
               >
-                {streakCount} {streakCount === 1 ? "day" : "days"}
+                {currentStreak} {currentStreak === 1 ? "day" : "days"}
               </Text>
               <Text style={styles.streakLabel}>Log Streak</Text>
+              {longestStreak > 0 && longestStreak > currentStreak && (
+                <Text style={[styles.streakSubLabel, { color: "#6b7280" }]}>
+                  Best: {longestStreak} days
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -635,20 +675,20 @@ export default function Dashboard() {
                 {estimate?.days ??
                   (targetDateISO
                     ? Math.max(
-                        0,
-                        dayjs(targetDateISO).diff(
-                          dayjs(),
-                          "day"
-                        )
+                      0,
+                      dayjs(targetDateISO).diff(
+                        dayjs(),
+                        "day"
                       )
+                    )
                     : "—")}
               </Text>
               <Text style={styles.tileSub}>
                 {estimate?.date ??
                   (targetDateISO
                     ? dayjs(targetDateISO).format(
-                        "MMM D, YYYY"
-                      )
+                      "MMM D, YYYY"
+                    )
                     : "No date set")}
               </Text>
             </View>
@@ -694,10 +734,10 @@ export default function Dashboard() {
               <Text
                 style={[styles.tileValue, { color: TEXT }]}
               >
-                {deltaFromStartLb! > 0
-                  ? `+${deltaFromStartLb}`
-                  : `${deltaFromStartLb}`}{" "}
-                lbs
+                {deltaFromStart! > 0
+                  ? `+${deltaFromStart}`
+                  : `${deltaFromStart}`}{" "}
+                {DISPLAY_UNIT === "kg" ? kgUnit : lbUnit}
               </Text>
               <Text style={styles.tileSub}>vs start</Text>
             </View>
@@ -837,26 +877,40 @@ export default function Dashboard() {
 
         {/* CTA buttons */}
         <View style={styles.ctaWrap}>
-          <Pressable
-            style={[styles.addBtn, { backgroundColor: ACCENT }]}
+          <Button
+            title="Add Log"
             onPress={() => nav.navigate("Log")}
-          >
-            <Text style={styles.addBtnText}>Add Log</Text>
-          </Pressable>
+            variant="primary"
+            accentColor={ACCENT}
+            style={styles.addBtn}
+          />
 
-          <Pressable
+          {/* Uncomment for testing only */}
+          {/* <Pressable
             onPress={handleResetAll}
             style={({ pressed }) => [
               {
                 backgroundColor: "#ef4444",
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 8,
+                marginTop: 8,
                 transform: [{ translateY: pressed ? 1 : 0 }],
               },
             ]}
           >
-            <Text>Reset all data (testing)</Text>
-          </Pressable>
+            <Text style={{ color: "#fff", fontWeight: "600" }}>Reset all data (testing)</Text>
+          </Pressable> */}
         </View>
       </ScrollView>
+
+      {/* Toast Notification */}
+      <Toast
+        message={toastMessage}
+        type={toastType}
+        visible={toastVisible}
+        onDismiss={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -900,6 +954,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     marginTop: 4,
+  },
+  streakSubLabel: {
+    fontSize: 12,
+    color: "#9ca3af",
+    marginTop: 2,
   },
 
   // Tiles

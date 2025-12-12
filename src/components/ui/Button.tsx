@@ -91,7 +91,7 @@ export default function Button({ title, onPress, variant = "primary", loading, d
       style={({ pressed }) => [
         ...getButtonStyle(),
         {
-          transform: [{ scale: pressed && !disabled && !loading ? 0.96 : 1 }],
+          transform: [{ scale: pressed && !disabled && !loading ? 0.98 : 1 }],
         },
       ]}
     >

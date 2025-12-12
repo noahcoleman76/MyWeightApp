@@ -22,6 +22,7 @@ type Props = {
   minWeight?: number;
   maxWeight?: number;
   showHelperText?: boolean;
+  customValidation?: (value: number) => string | null; // Returns error message or null if valid
 };
 
 export default function CurrentWeight({
@@ -34,6 +35,7 @@ export default function CurrentWeight({
   minWeight,
   maxWeight,
   showHelperText = true,
+  customValidation,
 }: Props) {
   const { colors } = useTheme();
   const ACCENT = accentColor ?? colors?.primary ?? "#16a34a";
@@ -48,6 +50,7 @@ export default function CurrentWeight({
   const [val, setVal] = useState("");
   const [focused, setFocused] = useState(false);
   const [hasBlurred, setHasBlurred] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
 
   /**
    * Allow:
@@ -95,9 +98,21 @@ export default function CurrentWeight({
 
   const hasValue = val.trim().length > 0 && val !== ".";
   const inRange = hasValue && !Number.isNaN(parsed) && parsed >= MIN && parsed <= MAX;
-  const isValid = inRange;
+  
+  // Check custom validation when value changes
+  React.useEffect(() => {
+    if (hasValue && inRange && customValidation) {
+      const error = customValidation(parsed);
+      setCustomError(error);
+    } else {
+      setCustomError(null);
+    }
+  }, [parsed, hasValue, inRange, customValidation]);
+  
+  const isValid = inRange && !customError;
 
   const showRangeHint = showHelperText && hasBlurred && hasValue && !inRange;
+  const showCustomError = showHelperText && hasBlurred && hasValue && inRange && customError;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
@@ -160,6 +175,12 @@ export default function CurrentWeight({
           {showRangeHint ? (
             <Text style={[styles.helper, { color: "#ef4444" }]}>
               Enter {MIN}–{MAX} (one decimal allowed).
+            </Text>
+          ) : null}
+
+          {showCustomError ? (
+            <Text style={[styles.helper, { color: "#ef4444" }]}>
+              {customError}
             </Text>
           ) : null}
 

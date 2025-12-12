@@ -73,9 +73,18 @@ export default function DateInput({
   };
 
   const onChange = (_e: DateTimePickerEvent, date?: Date) => {
-    if (date && dayjs(date).isAfter(today, "day")) {
-      setSelected(date);
+    if (Platform.OS === "android") {
+      // On Android, picker is dismissed automatically
       setShowPicker(false);
+      if (date && dayjs(date).isAfter(today, "day")) {
+        setSelected(date);
+      }
+    } else {
+      // On iOS, keep modal open and update selection
+      if (date && dayjs(date).isAfter(today, "day")) {
+        setSelected(date);
+        setShowPicker(false);
+      }
     }
   };
 
@@ -119,45 +128,54 @@ export default function DateInput({
           <Text style={styles.ctaText}>{buttonTitle}</Text>
         </Pressable>
 
-        {/* Picker Modal */}
-        <Modal
-          animationType="fade"
-          transparent
-          visible={showPicker}
-          onRequestClose={closePicker}
-          presentationStyle="overFullScreen"
-        >
-          {/* Backdrop closes modal on press */}
-          <Pressable style={styles.modalBackdrop} onPress={closePicker}>
-            {/* Card intercepts press to avoid closing */}
-            <Pressable
-              style={[styles.modalCard, { backgroundColor: BG, borderColor: MUTED }]}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <Text style={[styles.modalTitle, { color: TEXT }]}>Choose your end date</Text>
+        {/* Android: Native picker (no custom modal wrapper) */}
+        {Platform.OS === "android" && showPicker && (
+          <DateTimePicker
+            mode="date"
+            value={selected ?? minSelectable}
+            minimumDate={minSelectable}
+            onChange={onChange}
+            themeVariant="light"
+          />
+        )}
 
-              <View style={[styles.pickerBox, { borderColor: MUTED }]}>
-                <DateTimePicker
-                  mode="date"
-                  value={selected ?? minSelectable}
-                  minimumDate={minSelectable}
-                  display={Platform.select({
-                    ios: "inline",
-                    android: "calendar",
-                    default: "calendar",
-                  }) as any}
-                  onChange={onChange}
-                  themeVariant="light"
-                  style={styles.picker}
-                />
-              </View>
+        {/* iOS: Custom Modal with inline picker */}
+        {Platform.OS === "ios" && (
+          <Modal
+            animationType="fade"
+            transparent
+            visible={showPicker}
+            onRequestClose={closePicker}
+            presentationStyle="overFullScreen"
+          >
+            {/* Backdrop closes modal on press */}
+            <Pressable style={styles.modalBackdrop} onPress={closePicker}>
+              {/* Card intercepts press to avoid closing */}
+              <Pressable
+                style={[styles.modalCard, { backgroundColor: BG, borderColor: MUTED }]}
+                onPress={(e) => e.stopPropagation()}
+              >
+                <Text style={[styles.modalTitle, { color: TEXT }]}>Choose your end date</Text>
 
-              <TouchableOpacity onPress={closePicker} style={[styles.cancelBtn, { borderColor: MUTED }]}>
-                <Text style={[styles.cancelText, { color: SUBTLE }]}>Choose date later</Text>
-              </TouchableOpacity>
+                <View style={[styles.pickerBox, { borderColor: MUTED }]}>
+                  <DateTimePicker
+                    mode="date"
+                    value={selected ?? minSelectable}
+                    minimumDate={minSelectable}
+                    display="inline"
+                    onChange={onChange}
+                    themeVariant="light"
+                    style={styles.picker}
+                  />
+                </View>
+
+                <TouchableOpacity onPress={closePicker} style={[styles.cancelBtn, { borderColor: MUTED }]}>
+                  <Text style={[styles.cancelText, { color: SUBTLE }]}>Choose date later</Text>
+                </TouchableOpacity>
+              </Pressable>
             </Pressable>
-          </Pressable>
-        </Modal>
+          </Modal>
+        )}
       </View>
     </SafeAreaView>
   );

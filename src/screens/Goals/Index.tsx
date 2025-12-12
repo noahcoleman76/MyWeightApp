@@ -16,7 +16,11 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Button from "../../components/ui/Button";
+import { Toast } from "../../components/ui/Toast";
 import { computeDailyTarget, kgToLb, lbToKg } from "../../lib/calorieMath";
+import { UserDataService } from "../../lib/userDataService";
+import { useAuthStore } from "../../state/authStore";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
@@ -34,7 +38,13 @@ export default function Goals() {
     setDailyTargetOverride,
   } = useGoalStore();
   const { logs } = useLogStore();
+  const { user } = useAuthStore();
   const scrollRef = React.useRef<ScrollView | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -109,11 +119,56 @@ export default function Goals() {
 
   // ===== VALIDATION HELPERS =====
   const partialOK = (s: string) => /^\d{0,3}(\.\d?)?$/.test(s);
-  const finalOK = (s: string) => /^\d{2,3}(\.\d)?$/.test(s) && Number(s) >= 50 && Number(s) <= 999;
+  
+  // Basic range validation based on weight unit
+  const getWeightRange = () => {
+    if (wUnits === "kg") {
+      return { min: 30, max: 300 }; // kg range
+    } else {
+      return { min: 66, max: 661 }; // lb range (roughly 30-300 kg)
+    }
+  };
+  
+  const finalOK = (s: string) => {
+    if (!/^\d{2,3}(\.\d)?$/.test(s)) return false;
+    const n = Number(s);
+    const { min, max } = getWeightRange();
+    return n >= min && n <= max;
+  };
 
   const toKgFromInput = (s: string) => {
     const n = Number(s);
     return wUnits === "lb" ? lbToKg(n) : n;
+  };
+
+  // Goal weight validation based on mode
+  const validateGoalWeight = (goalWeightStr: string, startWeightStr: string): string | null => {
+    if (!finalOK(goalWeightStr)) {
+      const { min, max } = getWeightRange();
+      return `Enter ${min}–${max} ${wUnits} with up to 1 decimal (e.g., ${wUnits === "kg" ? "70" : "150"} or ${wUnits === "kg" ? "70.5" : "150.5"}).`;
+    }
+
+    const goalNum = Number(goalWeightStr);
+    const startNum = Number(startWeightStr);
+
+    if (mode === "lose" && goalNum >= startNum) {
+      return `Goal weight must be less than starting weight (${startNum} ${wUnits}) for weight loss.`;
+    }
+
+    if (mode === "gain" && goalNum <= startNum) {
+      return `Goal weight must be more than starting weight (${startNum} ${wUnits}) for weight gain.`;
+    }
+
+    return null;
+  };
+
+  // Starting weight validation
+  const validateStartWeight = (startWeightStr: string): string | null => {
+    if (!finalOK(startWeightStr)) {
+      const { min, max } = getWeightRange();
+      return `Enter ${min}–${max} ${wUnits} with up to 1 decimal (e.g., ${wUnits === "kg" ? "70" : "150"} or ${wUnits === "kg" ? "70.5" : "150.5"}).`;
+    }
+    return null;
   };
 
   const applyStartWeight = (s: string) => setStartingWeightKg(toKgFromInput(s));
@@ -391,15 +446,22 @@ export default function Goals() {
                 setStartErr(null);
                 return;
               }
-              if (finalOK(startW)) {
+              const error = validateStartWeight(startW);
+              if (!error) {
                 applyStartWeight(startW);
                 setLastValidStartW(startW);
                 setStartErr(null);
+                setHasUnsavedChanges(true);
+                
+                // Re-validate goal weight if it exists
+                if (!isMaintain && goalW.trim() !== "") {
+                  const goalError = validateGoalWeight(goalW, startW);
+                  setGoalErr(goalError);
+                }
               } else {
-                setStartErr("Enter 50–999 with up to 1 decimal (e.g., 150 or 150.5).");
+                setStartErr(error);
               }
             }}
-            onFocus={scrollToBottom}
             placeholder={wUnits === "lb" ? "e.g. 200" : "e.g. 91"}
             keyboardType="decimal-pad"
             returnKeyType="done"
@@ -429,15 +491,16 @@ export default function Goals() {
                     setGoalErr(null);
                     return;
                   }
-                  if (finalOK(goalW)) {
+                  const error = validateGoalWeight(goalW, startW);
+                  if (!error) {
                     applyGoalWeight(goalW);
                     setLastValidGoalW(goalW);
                     setGoalErr(null);
+                    setHasUnsavedChanges(true);
                   } else {
-                    setGoalErr("Enter 50–999 with up to 1 decimal (e.g., 170 or 170.5).");
+                    setGoalErr(error);
                   }
                 }}
-                onFocus={scrollToBottom}
                 placeholder={wUnits === "lb" ? "e.g. 170" : "e.g. 77"}
                 keyboardType="decimal-pad"
                 returnKeyType="done"
@@ -464,81 +527,97 @@ export default function Goals() {
                 </Text>
               </Pressable>
 
-              {/* Picker Modal */}
-              <Modal
-                animationType="fade"
-                transparent
-                visible={showPicker}
-                onRequestClose={closePicker}
-                presentationStyle="overFullScreen"
-              >
-                <Pressable style={modalStyles.backdrop} onPress={closePicker}>
-                  <Pressable
-                    style={[modalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
-                    onPress={(e) => e.stopPropagation()}
-                  >
-                    <Text style={[modalStyles.title, { color: "#0f172a" }]}>
-                      Choose your end date
-                    </Text>
+              {/* Picker Modal - Different handling for iOS vs Android */}
+              {Platform.OS === "ios" ? (
+                <Modal
+                  animationType="fade"
+                  transparent
+                  visible={showPicker}
+                  onRequestClose={closePicker}
+                  presentationStyle="overFullScreen"
+                >
+                  <Pressable style={modalStyles.backdrop} onPress={closePicker}>
+                    <Pressable
+                      style={[modalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
+                      onPress={(e) => e.stopPropagation()}
+                    >
+                      <Text style={[modalStyles.title, { color: "#0f172a" }]}>
+                        Choose your end date
+                      </Text>
 
-                    <View style={[modalStyles.pickerBox, { borderColor: BORDER }]}>
-                      <DateTimePicker
-                        mode="date"
-                        value={tempDate ?? minSelectable}
-                        minimumDate={minSelectable}
-                        display={
-                          Platform.select({
-                            ios: "inline",
-                            android: "calendar",
-                            default: "calendar",
-                          }) as any
-                        }
-                        onChange={(_e, date) => {
-                          if (date && dayjs(date).isAfter(today, "day")) {
-                            setTempDate(date);
-                            if (Platform.OS === "android") setShowPicker(false);
-                          }
-                        }}
-                        themeVariant="light"
-                        style={modalStyles.picker}
-                      />
-                    </View>
+                      <View style={[modalStyles.pickerBox, { borderColor: BORDER }]}>
+                        <DateTimePicker
+                          mode="date"
+                          value={tempDate ?? minSelectable}
+                          minimumDate={minSelectable}
+                          display="inline"
+                          onChange={(_e, date) => {
+                            if (date && dayjs(date).isAfter(today, "day")) {
+                              setTempDate(date);
+                            }
+                          }}
+                          themeVariant="light"
+                          style={modalStyles.picker}
+                        />
+                      </View>
 
-                    <View style={modalStyles.actions}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setTempDate(null);
-                          setTargetDateISO(undefined);
-                          closePicker();
-                        }}
-                        style={[modalStyles.linkBtn, { borderColor: BORDER }]}
-                      >
-                        <Text style={modalStyles.linkText}>No End Date</Text>
-                      </TouchableOpacity>
+                      <View style={modalStyles.actions}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            setTempDate(null);
+                            setTargetDateISO(undefined);
+                            setHasUnsavedChanges(true);
+                            closePicker();
+                          }}
+                          style={[modalStyles.linkBtn, { borderColor: BORDER }]}
+                        >
+                          <Text style={modalStyles.linkText}>No End Date</Text>
+                        </TouchableOpacity>
 
-                      <Pressable
-                        onPress={() => {
-                          if (tempDate) {
-                            setTargetDateISO(
-                              dayjs(tempDate).format("YYYY-MM-DD")
-                            );
-                          }
-                          closePicker();
-                        }}
-                        style={({ pressed }) => [
-                          modalStyles.cta,
-                          {
-                            backgroundColor: "#5eada8",
-                            opacity: pressed ? 0.9 : 1,
-                          },
-                        ]}
-                      >
-                        <Text style={modalStyles.ctaText}>Save date</Text>
-                      </Pressable>
-                    </View>
+                        <Pressable
+                          onPress={() => {
+                            if (tempDate) {
+                              setTargetDateISO(
+                                dayjs(tempDate).format("YYYY-MM-DD")
+                              );
+                              setHasUnsavedChanges(true);
+                            }
+                            closePicker();
+                          }}
+                          style={({ pressed }) => [
+                            modalStyles.cta,
+                            {
+                              backgroundColor: "#5eada8",
+                              opacity: pressed ? 0.9 : 1,
+                            },
+                          ]}
+                        >
+                          <Text style={modalStyles.ctaText}>Save date</Text>
+                        </Pressable>
+                      </View>
+                    </Pressable>
                   </Pressable>
-                </Pressable>
-              </Modal>
+                </Modal>
+              ) : (
+                /* Android: DateTimePicker has its own native modal */
+                showPicker && (
+                  <DateTimePicker
+                    mode="date"
+                    value={tempDate ?? minSelectable}
+                    minimumDate={minSelectable}
+                    display="calendar"
+                    onChange={(_e, date) => {
+                      setShowPicker(false);
+                      if (date && dayjs(date).isAfter(today, "day")) {
+                        setTempDate(date);
+                        setTargetDateISO(dayjs(date).format("YYYY-MM-DD"));
+                        setHasUnsavedChanges(true);
+                      }
+                    }}
+                    onTouchCancel={() => setShowPicker(false)}
+                  />
+                )
+              )}
 
               {/* Manual daily target override */}
               <Text style={[s.label, { marginTop: 16 }]}>
@@ -559,12 +638,14 @@ export default function Goals() {
                     setManualTarget("");
                     setDailyTargetOverride(undefined);
                     setManualTargetErr(null);
+                    setHasUnsavedChanges(true);
                     return;
                   }
                   if (finalTargetOK(trimmed)) {
                     const n = Number(trimmed);
                     setDailyTargetOverride(n);
                     setManualTargetErr(null);
+                    setHasUnsavedChanges(true);
                   } else {
                     setManualTargetErr(
                       `Enter at least ${MIN_TARGET} kcal (e.g. 1700).`
@@ -596,14 +677,14 @@ export default function Goals() {
           <Text style={s.label}>Mode</Text>
           <View style={s.chipsRow}>
             {(["lose", "maintain", "gain"] as const).map((m) => (
-              <Chip key={m} text={cap(m)} active={mode === m} onPress={() => setMode(m)} accent={ACCENT} />
+              <Chip key={m} text={cap(m)} active={mode === m} onPress={() => { setMode(m); setHasUnsavedChanges(true); }} accent={ACCENT} />
             ))}
           </View>
 
           <Text style={[s.label, { marginTop: 18 }]}>Activity Level</Text>
           <View style={s.chipsWrap}>
             {(["sedentary", "light", "moderate", "high"] as const).map((a) => (
-              <Chip key={a} text={cap(a)} active={profile.activityLevel === a} onPress={() => setActivity(a)} accent={ACCENT} />
+              <Chip key={a} text={cap(a)} active={profile.activityLevel === a} onPress={() => { setActivity(a); setHasUnsavedChanges(true); }} accent={ACCENT} />
             ))}
           </View>
 
@@ -613,8 +694,9 @@ export default function Goals() {
               text="lb"
               active={wUnits === "lb"}
               onPress={() => {
-                setUnits("lb", hUnits as any);
                 setWUnits("lb");
+                setUnits("lb", hUnits as any);
+                setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
             />
@@ -622,8 +704,9 @@ export default function Goals() {
               text="kg"
               active={wUnits === "kg"}
               onPress={() => {
-                setUnits("kg", hUnits as any);
                 setWUnits("kg");
+                setUnits("kg", hUnits as any);
+                setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
             />
@@ -635,8 +718,9 @@ export default function Goals() {
               text="in"
               active={hUnits === "in"}
               onPress={() => {
-                setUnits(wUnits as any, "in");
                 setHUnits("in");
+                setUnits(wUnits as any, "in");
+                setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
             />
@@ -644,14 +728,69 @@ export default function Goals() {
               text="cm"
               active={hUnits === "cm"}
               onPress={() => {
-                setUnits(wUnits as any, "cm");
                 setHUnits("cm");
+                setUnits(wUnits as any, "cm");
+                setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
             />
           </View>
         </Pressable>
+
+        {/* Save Changes Button - Only show when there are unsaved changes */}
+        {hasUnsavedChanges && (
+          <View style={[s.full, { marginTop: 24, marginBottom: 16 }]}>
+            <Button
+              title="Save Changes"
+              onPress={async () => {
+                if (!user?.uid) {
+                  setToastMessage("You must be logged in to save changes.");
+                  setToastType("error");
+                  setToastVisible(true);
+                  return;
+                }
+
+                setIsSyncing(true);
+                try {
+                  await UserDataService.syncToFirestore(user.uid);
+                  setToastMessage("Your goals have been saved!");
+                  setToastType("success");
+                  setToastVisible(true);
+                  setHasUnsavedChanges(false);
+                } catch (error) {
+                  console.error("Failed to sync goals:", error);
+                  setToastMessage("Failed to save changes. Please try again.");
+                  setToastType("error");
+                  setToastVisible(true);
+                } finally {
+                  setIsSyncing(false);
+                }
+              }}
+              variant="primary"
+              loading={isSyncing}
+              disabled={isSyncing}
+              accentColor={ACCENT}
+              style={{
+                paddingVertical: 16,
+                borderRadius: 16,
+                shadowColor: "#000",
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 3,
+              }}
+            />
+          </View>
+        )}
       </ScrollView>
+
+      {/* Toast Notification */}
+      <Toast
+        message={toastMessage}
+        type={toastType}
+        visible={toastVisible}
+        onDismiss={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 }

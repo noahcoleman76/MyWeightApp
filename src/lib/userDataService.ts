@@ -29,8 +29,19 @@ export class UserDataService {
     const goal = useGoalStore.getState();
     const onboarding = useOnboardingStore.getState();
     
-    console.log('📊 Collecting user data from stores:', {
-      profile: { ...profile, email: profile.email ? 'SET' : 'UNDEFINED' },
+    console.log('📊 Collecting user data from stores (DETAILED):', {
+      profile: {
+        name: profile.name,
+        age: profile.age,
+        gender: profile.gender,
+        height: profile.height,
+        heightUnit: profile.heightUnit,
+        currentWeightKg: profile.currentWeightKg,
+        startingWeightKg: profile.startingWeightKg,
+        weightUnit: profile.weightUnit,
+        activityLevel: profile.activityLevel,
+        email: profile.email ? 'SET' : 'UNDEFINED'
+      },
       goal: { mode: goal.mode, goalWeightKg: goal.goalWeightKg },
       onboarding: { isUploadedToFirestore: onboarding.isUploadedToFirestore }
     });
@@ -82,12 +93,19 @@ export class UserDataService {
         onboardingCompletedAt: new Date().toISOString(),
       };
       
-      console.log('📋 Data prepared for Firestore:', {
+      console.log('📋 Data prepared for Firestore (DETAILED):', {
         fieldsCount: Object.keys(dataWithTimestamp).length,
         hasUndefined: Object.values(dataWithTimestamp).some(v => v === undefined),
-        requiredFields: {
+        data: {
           name: dataWithTimestamp.name,
+          age: dataWithTimestamp.age,
           gender: dataWithTimestamp.gender,
+          height: dataWithTimestamp.height,
+          heightUnit: dataWithTimestamp.heightUnit,
+          currentWeightKg: dataWithTimestamp.currentWeightKg,
+          startingWeightKg: dataWithTimestamp.startingWeightKg,
+          weightUnit: dataWithTimestamp.weightUnit,
+          activityLevel: dataWithTimestamp.activityLevel,
           goalMode: dataWithTimestamp.goalMode
         }
       });
@@ -124,13 +142,39 @@ export class UserDataService {
         console.log('ℹ️ No user data found in Firestore');
         return false;
       }
+
+      console.log('📥 Raw data retrieved from Firestore (DETAILED):', {
+        name: userData.name,
+        age: userData.age,
+        gender: userData.gender,
+        height: userData.height,
+        heightUnit: userData.heightUnit,
+        currentWeightKg: userData.currentWeightKg,
+        startingWeightKg: userData.startingWeightKg,
+        weightUnit: userData.weightUnit,
+        activityLevel: userData.activityLevel,
+        goalMode: userData.goalMode,
+      });
       
       // Populate profile store
       const profileStore = useProfileStore.getState();
+      console.log('📝 Populating profile store with:', {
+        name: userData.name,
+        age: userData.age,
+        height: userData.height,
+        currentWeightKg: userData.currentWeightKg,
+        startingWeightKg: userData.startingWeightKg
+      });
+      
       profileStore.setName(userData.name);
       if (userData.email) profileStore.setEmail(userData.email);
       profileStore.setGender(userData.gender);
-      profileStore.setAgeFromBirthYear(new Date().getFullYear() - userData.age);
+      
+      // Calculate birth year from age for storage
+      const birthYear = new Date().getFullYear() - userData.age;
+      console.log('🎂 Age conversion:', { age: userData.age, calculatedBirthYear: birthYear });
+      profileStore.setAgeFromBirthYear(birthYear);
+      
       profileStore.setHeightCm(userData.height);
       profileStore.setCurrentWeightKg(userData.currentWeightKg);
       if (userData.startingWeightKg) profileStore.setStartingWeightKg(userData.startingWeightKg);
@@ -140,6 +184,12 @@ export class UserDataService {
       }
       if (userData.motivation) profileStore.setMotivation(userData.motivation);
       if (userData.concerns) profileStore.setConcerns(userData.concerns);
+      
+      // Populate streak data (NEW)
+      if (userData.streak) {
+        profileStore.setStreak(userData.streak);
+        console.log('🔥 Streak data loaded:', userData.streak);
+      }
       
       // Populate goal store
       const goalStore = useGoalStore.getState();
