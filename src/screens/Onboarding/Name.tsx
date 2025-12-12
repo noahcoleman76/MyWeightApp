@@ -60,6 +60,7 @@ export default function Name() {
             style={[
               styles.inputCard,
               {
+                backgroundColor: colors?.card ?? "#F9FAFB",
                 borderColor: focused
                   ? ACCENT
                   : isValid && hasValue
@@ -147,7 +148,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#F9FAFB",
     ...Platform.select({
       ios: {
         shadowColor: "#000",

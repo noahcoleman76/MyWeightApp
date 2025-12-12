@@ -14,13 +14,14 @@ export default function LearnMore({ navigation }: Props) {
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
+  const SUBTLE = colors?.text ? `${colors.text}99` : "#6b7280";
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <BackButton />
       <View style={styles.container}>
         <Text style={[styles.title, { color: TEXT }]}>Learn More</Text>
-        <Text style={styles.description}>
+        <Text style={[styles.description, { color: SUBTLE }]}>
           Local-first storage, fast charts, and a distraction-free experience.
         </Text>
         <Pressable
@@ -58,7 +59,6 @@ const styles = StyleSheet.create({
   description: {
     marginTop: 12,
     textAlign: 'center',
-    color: '#6b7280',
     lineHeight: 20,
     maxWidth: 360,
   },

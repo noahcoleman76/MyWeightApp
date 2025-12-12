@@ -47,7 +47,7 @@ export default function ActivityInput({
                 style={({ pressed }) => [
                   styles.card,
                   {
-                    backgroundColor: isSelected ? ACCENT : "#F9FAFB",
+                    backgroundColor: isSelected ? ACCENT : (colors?.card ?? "#F9FAFB"),
                     borderColor: isSelected ? ACCENT : MUTED,
                     transform: [{ scale: pressed ? 0.98 : 1 }],
                     shadowOpacity: isSelected ? 0.25 : 0.12,
@@ -84,7 +84,7 @@ export default function ActivityInput({
           style={({ pressed }) => [
             styles.cta,
             {
-              backgroundColor: selected ? ACCENT : "#E5E7EB",
+              backgroundColor: selected ? ACCENT : MUTED,
               transform: [{ translateY: pressed ? 1 : 0 }],
               opacity: selected ? 1 : 0.6,
             },

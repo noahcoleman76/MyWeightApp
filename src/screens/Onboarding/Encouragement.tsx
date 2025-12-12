@@ -23,7 +23,7 @@ export default function Encouragement({ navigation }: Props) {
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
   const MUTED = colors?.border ?? "#e5e7eb";
-  const SUBTLE = "#6b7280";
+  const SUBTLE = colors?.text ? `${colors.text}99` : "#6b7280";
 
   const onNext = async () => {
     if (!user || isUploading) return;
@@ -135,7 +135,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
     width: 16,
     textAlign: "center",
-    color: "#111827",
   },
   bulletText: {
     flex: 1,

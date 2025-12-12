@@ -59,7 +59,7 @@ export default function Concerns() {
                 style={({ pressed }) => [
                   styles.option,
                   {
-                    backgroundColor: isSelected ? ACCENT : "#F9FAFB",
+                    backgroundColor: isSelected ? ACCENT : (colors?.card ?? "#F9FAFB"),
                     borderColor: isSelected ? ACCENT : MUTED,
                     transform: [{ scale: pressed ? 0.98 : 1 }],
                     shadowOpacity: isSelected ? 0.25 : 0.12,
@@ -83,7 +83,7 @@ export default function Concerns() {
           style={({ pressed }) => [
             styles.cta,
             {
-              backgroundColor: isValid ? ACCENT : "#E5E7EB",
+              backgroundColor: isValid ? ACCENT : MUTED,
               transform: [{ translateY: pressed && isValid ? 1 : 0 }],
               opacity: isValid ? 1 : 0.6,
             },

@@ -133,8 +133,9 @@ export default function Dashboard() {
   const ACCENT = colors?.primary ?? "#5eada8";
   const TEXT = colors?.text ?? "#0f172a";
   const BG = colors?.background ?? "#f7f7f7";
-  const CARD_BG = "#ffffff";
-  const BORDER = "#eef2f7";
+  const CARD_BG = colors?.card ?? "#ffffff";
+  const BORDER = colors?.border ?? "#eef2f7";
+  const MUTED = colors?.text ? `${colors.text}99` : "#6b7280";
 
   // ── Units
   const DISPLAY_UNIT: "kg" | "lb" =
@@ -615,7 +616,7 @@ export default function Dashboard() {
               </Text>
               <Text style={styles.streakLabel}>Log Streak</Text>
               {longestStreak > 0 && longestStreak > currentStreak && (
-                <Text style={[styles.streakSubLabel, { color: "#6b7280" }]}>
+                <Text style={[styles.streakSubLabel, { color: MUTED }]}>
                   Best: {longestStreak} days
                 </Text>
               )}
@@ -793,7 +794,7 @@ export default function Dashboard() {
                 style={{
                   tickLabels: {
                     fontSize: 12,
-                    fill: "#6b7280",
+                    fill: MUTED,
                   },
                   axis: { stroke: "transparent" },
                   ticks: { stroke: "transparent" },
@@ -806,9 +807,9 @@ export default function Dashboard() {
                 style={{
                   tickLabels: {
                     fontSize: 12,
-                    fill: "#6b7280",
+                    fill: MUTED,
                   },
-                  grid: { stroke: "#e5e7eb" },
+                  grid: { stroke: BORDER },
                   axis: { stroke: "transparent" },
                 }}
               />

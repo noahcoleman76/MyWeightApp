@@ -126,11 +126,12 @@ export default function CurrentWeight({
             style={[
               styles.inputCard,
               {
+                backgroundColor: colors?.card ?? "#F9FAFB",
                 borderColor: focused
                   ? ACCENT
-                  : isValid
+                  : inRange
                   ? ACCENT
-                  : showRangeHint
+                  : hasValue && !inRange
                   ? "#ef4444"
                   : MUTED,
                 shadowOpacity: focused ? 0.2 : 0.1,
@@ -190,7 +191,7 @@ export default function CurrentWeight({
             style={({ pressed }) => [
               styles.cta,
               {
-                backgroundColor: isValid ? ACCENT : "#E5E7EB",
+                backgroundColor: isValid ? ACCENT : MUTED,
                 transform: [{ translateY: pressed && isValid ? 1 : 0 }],
                 opacity: isValid ? 1 : 0.7,
               },
@@ -230,7 +231,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#F9FAFB",
     ...Platform.select({
       ios: {
         shadowColor: "#000",

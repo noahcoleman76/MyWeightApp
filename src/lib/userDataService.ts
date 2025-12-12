@@ -1,7 +1,8 @@
 import { useGoalStore } from "../state/goalStore";
+import { useLogStore } from "../state/logStore";
 import { useOnboardingStore } from "../state/onboardingStore";
 import { useProfileStore } from "../state/profileStore";
-import { FirestoreService, FirestoreUserData } from "./firebase";
+import { FirestoreService, FirestoreUserData, LogService } from "./firebase";
 
 /**
  * User Data Service
@@ -233,6 +234,7 @@ export class UserDataService {
     // Reset all stores
     useProfileStore.getState().reset();
     useGoalStore.getState().reset();
+    useLogStore.getState().reset();
     useOnboardingStore.getState().resetOnboarding();
     
     console.log('✅ Local user data cleared');
@@ -248,8 +250,11 @@ export class UserDataService {
       // Clear local data first
       this.clearLocalUserData();
       
-      // Delete from Firestore
+      // Delete user profile data from Firestore
       await FirestoreService.deleteUserData(userId);
+      
+      // Delete all log entries from Firestore
+      await LogService.deleteAllUserLogEntries(userId);
       
       console.log('✅ All user data deleted successfully');
     } catch (error) {

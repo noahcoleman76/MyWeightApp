@@ -73,6 +73,7 @@ export default function NumericInput({
           style={[
             styles.inputCard,
             {
+              backgroundColor: colors?.card ?? "#F9FAFB",
               borderColor: focused ? ACCENT : isValid ? ACCENT : MUTED,
               shadowOpacity: focused ? 0.2 : 0.1,
             },
@@ -110,13 +111,13 @@ export default function NumericInput({
 
         <Pressable
           disabled={!isValid}
-          onPress={() => onConfirm(parsed)}
+          onPress={() => isValid && onConfirm(parsed)}
           style={({ pressed }) => [
             styles.cta,
             {
-              backgroundColor: isValid ? ACCENT : "#E5E7EB",
+              backgroundColor: isValid ? ACCENT : MUTED,
               transform: [{ translateY: pressed && isValid ? 1 : 0 }],
-              opacity: isValid ? 1 : 0.7,
+              opacity: isValid ? 1 : 0.6,
             },
           ]}
           accessibilityRole="button"
@@ -152,7 +153,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#F9FAFB",
     ...Platform.select({
       ios: {
         shadowColor: "#000",

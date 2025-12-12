@@ -25,8 +25,7 @@ export default function HowItWorks({ navigation }: Props) {
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
-  const MUTED = colors?.border ?? "#e5e7eb";
-  const SUBTLE = "#6b7280";
+  const SUBTLE = colors?.text ? `${colors.text}99` : "#6b7280";
 
   const onNext = () => navigation.navigate("Encouragement");
   const onLearnMore = () => navigation.navigate("OnboardingLearnMore");
@@ -127,7 +126,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
     width: 16,
     textAlign: "center",
-    color: "#111827",
   },
   bulletText: {
     flex: 1,

@@ -99,6 +99,8 @@ export default function Log() {
   const BG = colors?.background ?? "#f7f7f7";
   const CARD_BG = colors?.card ?? "#ffffff";
   const BORDER = colors?.border ?? "#eef2f7";
+  const MUTED = colors?.text ? `${colors.text}99` : "#6b7280";
+  const PLACEHOLDER = colors?.text ? `${colors.text}66` : "#9ca3af";
 
   // Toast helper
   const showToast = (message: string, type: 'error' | 'success' | 'info' = 'error') => {
@@ -449,10 +451,10 @@ export default function Log() {
             {showAddCard && (
               <View style={[styles.full, { marginTop: 8 }]}>
                 <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
-                  <Text style={styles.cardTitle}>New Log</Text>
+                  <Text style={[styles.cardTitle, { color: TEXT }]}>New Log</Text>
 
                   {/* Date */}
-                  <Text style={styles.label}>Date</Text>
+                  <Text style={[styles.label, { color: MUTED }]}>Date</Text>
                   <Pressable
                     onPress={() => openDatePicker("quick")}
                     style={[styles.input, { justifyContent: "center" }]}
@@ -463,7 +465,7 @@ export default function Log() {
                   </Pressable>
 
                   {/* Weight */}
-                  <Text style={[styles.label, { marginTop: 12 }]}>
+                  <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>
                     Weight ({profile.weightUnit === "kg" ? "kg" : "lbs"})
                   </Text>
                   <TextInput
@@ -472,31 +474,31 @@ export default function Log() {
                     keyboardType="numeric"
                     returnKeyType="done"
                     placeholder={`Enter weight in ${profile.weightUnit === "kg" ? "kg" : "lbs"}`}
-                    placeholderTextColor="#9ca3af"
-                    style={styles.input}
+                    placeholderTextColor={PLACEHOLDER}
+                    style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
                   {/* Calories */}
-                  <Text style={[styles.label, { marginTop: 12 }]}>Calories</Text>
+                  <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Calories</Text>
                   <TextInput
                     value={qa.calories}
                     onChangeText={(t) => setQa({ ...qa, calories: t })}
                     keyboardType="numeric"
                     returnKeyType="done"
                     placeholder="Enter calories consumed"
-                    placeholderTextColor="#9ca3af"
-                    style={styles.input}
+                    placeholderTextColor={PLACEHOLDER}
+                    style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
                   {/* Notes */}
-                  <Text style={[styles.label, { marginTop: 12 }]}>Notes — optional</Text>
+                  <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Notes — optional</Text>
                   <TextInput
                     value={qa.notes}
                     onChangeText={(t) => setQa({ ...qa, notes: t })}
                     multiline
                     placeholder="Add any notes about your day..."
-                    placeholderTextColor="#9ca3af"
-                    style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+                    placeholderTextColor={PLACEHOLDER}
+                    style={[styles.input, { height: 80, textAlignVertical: "top", backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
                   
                   <View style={{ marginTop: 16, alignItems: "center" }}>
@@ -515,7 +517,7 @@ export default function Log() {
                       }}
                       style={{ marginTop: 10 }}
                     >
-                      <Text style={styles.mutedLink}>Cancel</Text>
+                      <Text style={[styles.mutedLink, { color: MUTED }]}>Cancel</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -525,11 +527,11 @@ export default function Log() {
             {/* History header + filters + jump */}
             <View style={[styles.full, { marginTop: 16, marginBottom: 4 }]}>
               <View style={styles.rowSpace}>
-                <Text style={styles.sectionTitle}>History</Text>
+                <Text style={[styles.sectionTitle, { color: TEXT }]}>History</Text>
                 <Pressable onPress={openJumpToDate} hitSlop={8}>
                   <View style={styles.jumpRow}>
                     <Ionicons name="calendar-outline" size={16} color={ACCENT} />
-                    <Text style={styles.jumpText}>Jump to date</Text>
+                    <Text style={[styles.jumpText, { color: ACCENT }]}>Jump to date</Text>
                   </View>
                 </Pressable>
               </View>
@@ -546,13 +548,15 @@ export default function Log() {
                       onPress={() => setFilter(mode)}
                       style={[
                         styles.filterChip,
-                        active && { backgroundColor: ACCENT + "22", borderColor: ACCENT },
+                        { borderColor: active ? ACCENT : BORDER },
+                        active && { backgroundColor: ACCENT + "22" },
                       ]}
                     >
                       <Text
                         style={[
                           styles.filterText,
-                          active && { color: ACCENT, fontWeight: "700" },
+                          { color: active ? ACCENT : MUTED },
+                          active && { fontWeight: "700" },
                         ]}
                       >
                         {label}
@@ -587,10 +591,10 @@ export default function Log() {
             return (
               <View style={[styles.full, { marginBottom: 10 }]}>
                 <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
-                  <Text style={styles.editTitle}>Edit entry</Text>
+                  <Text style={[styles.editTitle, { color: TEXT }]}>Edit entry</Text>
 
                   {/* Date */}
-                  <Text style={styles.label}>Date</Text>
+                  <Text style={[styles.label, { color: MUTED }]}>Date</Text>
                   <Pressable
                     onPress={() => openDatePicker("edit")}
                     style={[styles.input, { justifyContent: "center" }]}
@@ -610,29 +614,30 @@ export default function Log() {
                     keyboardType="numeric"
                     returnKeyType="done"
                     placeholder={`Enter weight in ${profile.weightUnit === "kg" ? "kg" : "lbs"}`}
-                    placeholderTextColor="#9ca3af"
-                    style={styles.input}
+                    placeholderTextColor={PLACEHOLDER}
+                    style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
                   {/* Calories */}
-                  <Text style={[styles.label, { marginTop: 12 }]}>Calories</Text>
+                  <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Calories</Text>
                   <TextInput
                     value={edit.calories}
                     onChangeText={(t) => setEdit({ ...edit, calories: t })}
                     keyboardType="numeric"
                     returnKeyType="done"
                     placeholder="Enter calories consumed"
-                    placeholderTextColor="#9ca3af"
-                    style={styles.input}
+                    placeholderTextColor={PLACEHOLDER}
+                    style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
                   {/* Notes */}
-                  <Text style={[styles.label, { marginTop: 12 }]}>Notes — optional</Text>
+                  <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Notes — optional</Text>
                   <TextInput
                     value={edit.notes ?? ""}
                     onChangeText={(t) => setEdit({ ...edit, notes: t })}
                     multiline
-                    style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+                    placeholderTextColor={PLACEHOLDER}
+                    style={[styles.input, { height: 80, textAlignVertical: "top", backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
                   <View style={styles.editActions}>
@@ -640,7 +645,7 @@ export default function Log() {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setEdit(null);
                     }}>
-                      <Text style={styles.mutedLink}>Cancel</Text>
+                      <Text style={[styles.mutedLink, { color: MUTED }]}>Cancel</Text>
                     </Pressable>
                     <Pressable onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -664,11 +669,11 @@ export default function Log() {
           if (hasWeight) {
             leftContent = (
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={styles.rowText}>
+                <Text style={[styles.rowText, { color: TEXT }]}>
                   Weight: <Text style={styles.rowStrong}>{wDisp}</Text>
                 </Text>
                 {item.trend && (
-                  <Text style={styles.trend}>
+                  <Text style={[styles.trend, { color: MUTED }]}>
                     {item.trend === "up"
                       ? " ⬆"
                       : item.trend === "down"
@@ -680,7 +685,7 @@ export default function Log() {
             );
           } else if (hasCalories) {
             leftContent = (
-              <Text style={styles.rowText}>
+              <Text style={[styles.rowText, { color: TEXT }]}>
                 Calories: <Text style={styles.rowStrong}>{item.calories ?? 0}</Text>
               </Text>
             );
@@ -689,7 +694,7 @@ export default function Log() {
           // Right block only if both exist
           const rightContent =
             hasWeight && hasCalories ? (
-              <Text style={styles.rowText}>
+              <Text style={[styles.rowText, { color: TEXT }]}>
                 Calories: <Text style={styles.rowStrong}>{item.calories ?? 0}</Text>
               </Text>
             ) : null;
@@ -697,7 +702,7 @@ export default function Log() {
           return (
             <View style={[styles.full, { marginBottom: 10 }]}>
               {/* Year header */}
-              {item.yearLabel && <Text style={styles.yearHeader}>{item.yearLabel}</Text>}
+              {item.yearLabel && <Text style={[styles.yearHeader, { color: MUTED }]}>{item.yearLabel}</Text>}
 
               <Pressable
                 style={({ pressed }) => [
@@ -718,9 +723,9 @@ export default function Log() {
               >
                 <View style={styles.rowSpace}>
                   <View>
-                    <Text style={styles.rowDate}>{prettyDate(item.dateISO)}</Text>
+                    <Text style={[styles.rowDate, { color: TEXT }]}>{prettyDate(item.dateISO)}</Text>
                     {item.relative && (
-                      <Text style={styles.rowSub}>{item.relative}</Text>
+                      <Text style={[styles.rowSub, { color: MUTED }]}>{item.relative}</Text>
                     )}
                   </View>
                   <Pressable
@@ -748,13 +753,13 @@ export default function Log() {
 
                 {/* Notes */}
                 {item.notes ? (
-                  <Text style={styles.notesText}>{item.notes}</Text>
+                  <Text style={[styles.notesText, { color: MUTED }]}>{item.notes}</Text>
                 ) : null}
 
                 {/* Tap to edit centered */}
                 <View style={styles.rowEdit}>
-                  <Ionicons name="pencil" size={14} color="#6b7280" />
-                  <Text style={styles.rowHint}>Tap to edit</Text>
+                  <Ionicons name="pencil" size={14} color={MUTED} />
+                  <Text style={[styles.rowHint, { color: MUTED }]}>Tap to edit</Text>
                 </View>
               </Pressable>
             </View>
@@ -780,7 +785,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
 
   full: { marginHorizontal: 20 },
-  sectionTitle: { fontSize: 20, fontWeight: "800", color: "#0f172a" },
+  sectionTitle: { fontSize: 20, fontWeight: "800" },
 
   card: {
     borderRadius: 24,
@@ -796,7 +801,6 @@ const styles = StyleSheet.create({
 
   hint: {
     fontSize: 14,
-    color: "#6b7280",
     textAlign: "center",
     fontStyle: "italic",
   },
@@ -806,13 +810,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontSize: 14,
     fontWeight: "700",
-    color: "#6b7280",
   },
 
-  cardTitle: { fontSize: 18, fontWeight: "700", color: "#0f172a", marginBottom: 6 },
-  editTitle: { fontSize: 16, fontWeight: "700", color: "#0f172a", marginBottom: 8 },
+  cardTitle: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
+  editTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
 
-  label: { fontSize: 13, color: "#6b7280", fontWeight: "600", marginTop: 4 },
+  label: { fontSize: 13, fontWeight: "600", marginTop: 4 },
 
   row: { flexDirection: "row", alignItems: "center", marginTop: 6 },
   rowSpace: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -820,8 +823,6 @@ const styles = StyleSheet.create({
   input: {
     marginTop: 6,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -849,11 +850,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   link: { fontSize: 16, fontWeight: "700" },
-  mutedLink: { fontSize: 16, color: "#6b7280", fontWeight: "600" },
+  mutedLink: { fontSize: 16, fontWeight: "600" },
 
-  rowDate: { fontSize: 16, fontWeight: "700", color: "#0f172a" },
-  rowSub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
-  rowText: { marginTop: 6, fontSize: 15, color: "#0f172a" },
+  rowDate: { fontSize: 16, fontWeight: "700" },
+  rowSub: { fontSize: 12, marginTop: 2 },
+  rowText: { marginTop: 6, fontSize: 15 },
   rowStrong: { fontWeight: "800" },
 
   metaRow: {
@@ -867,19 +868,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginLeft: 4,
     fontSize: 14,
-    color: "#6b7280",
   },
 
   notesText: {
     marginTop: 8,
     fontSize: 13,
-    color: "#4b5563",
   },
 
   rowHint: {
     marginTop: 0,
     fontSize: 12,
-    color: "#6b7280",
     textAlign: "center",
   },
 
@@ -918,13 +916,11 @@ const styles = StyleSheet.create({
   filterChip: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   filterText: {
     fontSize: 12,
-    color: "#6b7280",
     fontWeight: "600",
   },
 
@@ -935,7 +931,6 @@ const styles = StyleSheet.create({
   },
   jumpText: {
     fontSize: 13,
-    color: "#5eada8",
     fontWeight: "600",
   },
 });

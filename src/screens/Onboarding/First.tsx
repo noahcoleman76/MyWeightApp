@@ -13,7 +13,7 @@ export default function First() {
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
-  const SUBTLE = "#6b7280";
+  const SUBTLE = colors?.text ? `${colors.text}99` : "#6b7280";
 
   const proceed = () => nav.navigate("Login");
 

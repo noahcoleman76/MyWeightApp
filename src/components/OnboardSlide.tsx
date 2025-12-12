@@ -34,6 +34,9 @@ export default function OnboardSlide({
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const ACCENT = colors?.primary ?? "#16a34a";
+  const TEXT = colors?.text ?? "#111827";
+  const BG = colors?.background ?? "#ffffff";
+  const BORDER = colors?.border ?? "#e5e7eb";
   const LOGIN_BLUE = "#2563eb";
 
   // --- slide in from right ---
@@ -59,71 +62,71 @@ export default function OnboardSlide({
   }, [fade, slideX]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: BG }]}>
       {showBackButton && (
         <BackButton />
       )}
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: showBackButton ? 0 : 40 }]}>
-      <Animated.View
-        style={[
-          styles.animWrap,
-          { transform: [{ translateX: slideX }], opacity: fade },
-        ]}
-      >
-        {/* Top image (2x size) */}
-        {image ? (
-          <Image source={image} style={styles.hero} resizeMode="contain" />
-        ) : (
-          <View style={[styles.hero, styles.placeholder]}>
-            <Text style={styles.placeholderText}>[dashboard image]</Text>
-          </View>
-        )}
-
-        {/* Separator line */}
-        <View style={styles.separator} />
-
-        {/* Text + CTA */}
-        <View style={styles.contentWrap}>
-          <Text style={styles.title}>{title}</Text>
-
-          {/* Big accent CTA with shadow */}
-          <Button
-            title={cta}
-            onPress={() => nav.navigate(nextRoute)}
-            variant="primary"
-            accentColor={ACCENT}
-            style={styles.ctaButtonWithShadow}
-          />
-
-          {showLoginLink && (
-            <View style={styles.loginLink}>
-              <Text style={styles.loginText}>
-                Already have an account?{" "}
-              </Text>
-              <Pressable
-                onPress={() => nav.navigate("Login" as never)}
-                style={{ marginTop: -2 }}
-              >
-                {({ pressed }) => (
-                  <Text
-                    style={[
-                      styles.loginText,
-                      {
-                        color: LOGIN_BLUE,
-                        fontWeight: "700",
-                        textDecorationLine: "underline",
-                        opacity: pressed ? 0.6 : 1
-                      }
-                    ]}
-                  >
-                    Log in.
-                  </Text>
-                )}
-              </Pressable>
+        <Animated.View
+          style={[
+            styles.animWrap,
+            { transform: [{ translateX: slideX }], opacity: fade },
+          ]}
+        >
+          {/* Top image (2x size) */}
+          {image ? (
+            <Image source={image} style={styles.hero} resizeMode="contain" />
+          ) : (
+            <View style={[styles.hero, styles.placeholder, { backgroundColor: BORDER }]}>
+              <Text style={[styles.placeholderText, { color: TEXT }]}>[dashboard image]</Text>
             </View>
           )}
-        </View>
-      </Animated.View>
+
+          {/* Separator line */}
+          <View style={[styles.separator, { backgroundColor: BORDER }]} />
+
+          {/* Text + CTA */}
+          <View style={styles.contentWrap}>
+            <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
+
+            {/* Big accent CTA with shadow */}
+            <Button
+              title={cta}
+              onPress={() => nav.navigate(nextRoute)}
+              variant="primary"
+              accentColor={ACCENT}
+              style={styles.ctaButtonWithShadow}
+            />
+
+            {showLoginLink && (
+              <View style={styles.loginLink}>
+                <Text style={[styles.loginText, { color: TEXT }]}>
+                  Already have an account?{" "}
+                </Text>
+                <Pressable
+                  onPress={() => nav.navigate("Login" as never)}
+                  style={{ marginTop: -2 }}
+                >
+                  {({ pressed }) => (
+                    <Text
+                      style={[
+                        styles.loginText,
+                        {
+                          color: LOGIN_BLUE,
+                          fontWeight: "700",
+                          textDecorationLine: "underline",
+                          opacity: pressed ? 0.6 : 1
+                        }
+                      ]}
+                    >
+                      Log in.
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -136,7 +139,6 @@ const HERO_HEIGHT = 520;      // 2× visual height
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffffff",
   },
   scrollContent: {
     flexGrow: 1,
@@ -156,18 +158,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   placeholder: {
-    backgroundColor: "#e5e7eb",
     alignItems: "center",
     justifyContent: "center",
   },
   placeholderText: {
-    color: "#6b7280",
+    // color will be applied inline
   },
   separator: {
     width: "100%",
     maxWidth: MAX_WIDTH,
     height: 1,
-    backgroundColor: "#e5e7eb",
     marginTop: 16,
     marginBottom: 20,
   },
@@ -223,6 +223,6 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 12,
-    color: "#374151",
+    // color will be applied inline
   },
 });

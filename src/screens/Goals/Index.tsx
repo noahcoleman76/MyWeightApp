@@ -1,6 +1,6 @@
 // app/screens/Goals/Index.tsx
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useTheme } from "@react-navigation/native";
 import dayjs from "dayjs";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -320,11 +320,13 @@ export default function Goals() {
   const closePicker = () => setShowPicker(false);
 
   // ===== THEME TOKENS =====
-  const ACCENT = "#5eada8";
-  const TEXT = "#0f172a";
-  const BG = "#f7f7f7";
-  const CARD_BG = "#ffffff";
-  const BORDER = "#eef2f7";
+  const { colors } = useTheme();
+  const ACCENT = colors?.primary ?? "#5eada8";
+  const TEXT = colors?.text ?? "#0f172a";
+  const BG = colors?.background ?? "#f7f7f7";
+  const CARD_BG = colors?.card ?? "#ffffff";
+  const BORDER = colors?.border ?? "#eef2f7";
+  const MUTED = colors?.text ? `${colors.text}99` : "#6b7280";
   const ERROR = "#ef4444";
 
   const kcal = (n?: number) =>
@@ -431,7 +433,7 @@ export default function Goals() {
           onPress={Keyboard.dismiss}
         >
           {/* Starting Weight */}
-          <Text style={s.label}>Starting Weight ({wUnits})</Text>
+          <Text style={[s.label, { color: MUTED }]}>Starting Weight ({wUnits})</Text>
           <TextInput
             value={startW}
             onChangeText={(t) => {
@@ -468,7 +470,11 @@ export default function Goals() {
             onSubmitEditing={Keyboard.dismiss}
             style={[
               s.input,
-              startErr ? { borderColor: ERROR } : null,
+              {
+                borderColor: startErr ? ERROR : BORDER,
+                backgroundColor: CARD_BG,
+                color: TEXT,
+              },
             ]}
           />
           {startErr ? <Text style={[s.errText]}>{startErr}</Text> : null}
@@ -476,7 +482,7 @@ export default function Goals() {
           {/* Goal weight + date (for lose / gain) */}
           {!isMaintain && (
             <>
-              <Text style={[s.label, { marginTop: 16 }]}>Goal Weight ({wUnits})</Text>
+              <Text style={[s.label, { color: MUTED, marginTop: 16 }]}>Goal Weight ({wUnits})</Text>
               <TextInput
                 value={goalW}
                 onChangeText={(t) => {
@@ -507,19 +513,23 @@ export default function Goals() {
                 onSubmitEditing={Keyboard.dismiss}
                 style={[
                   s.input,
-                  goalErr ? { borderColor: ERROR } : null,
+                  {
+                    borderColor: goalErr ? ERROR : BORDER,
+                    backgroundColor: CARD_BG,
+                    color: TEXT,
+                  },
                 ]}
               />
               {goalErr ? <Text style={s.errText}>{goalErr}</Text> : null}
 
-              <Text style={[s.label, { marginTop: 16 }]}>Desired End Date (optional)</Text>
+              <Text style={[s.label, { color: MUTED, marginTop: 16 }]}>Desired End Date (optional)</Text>
 
               {/* Display field that opens the picker */}
-              <Pressable onPress={openPicker} style={[s.input, { justifyContent: "center" }]}>
+              <Pressable onPress={openPicker} style={[s.input, { backgroundColor: CARD_BG, borderColor: BORDER, justifyContent: "center" }]}>
                 <Text
                   style={{
                     fontSize: 16,
-                    color: targetDateISO ? "#0f172a" : "#6b7280",
+                    color: targetDateISO ? TEXT : MUTED,
                     textAlign: "center",
                   }}
                 >
@@ -541,7 +551,7 @@ export default function Goals() {
                       style={[modalStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}
                       onPress={(e) => e.stopPropagation()}
                     >
-                      <Text style={[modalStyles.title, { color: "#0f172a" }]}>
+                      <Text style={[modalStyles.title, { color: TEXT }]}>
                         Choose your end date
                       </Text>
 
@@ -571,7 +581,7 @@ export default function Goals() {
                           }}
                           style={[modalStyles.linkBtn, { borderColor: BORDER }]}
                         >
-                          <Text style={modalStyles.linkText}>No End Date</Text>
+                          <Text style={[modalStyles.linkText, { color: MUTED }]}>No End Date</Text>
                         </TouchableOpacity>
 
                         <Pressable
@@ -587,7 +597,7 @@ export default function Goals() {
                           style={({ pressed }) => [
                             modalStyles.cta,
                             {
-                              backgroundColor: "#5eada8",
+                              backgroundColor: ACCENT,
                               opacity: pressed ? 0.9 : 1,
                             },
                           ]}
@@ -620,7 +630,7 @@ export default function Goals() {
               )}
 
               {/* Manual daily target override */}
-              <Text style={[s.label, { marginTop: 16 }]}>
+              <Text style={[s.label, { color: MUTED, marginTop: 16 }]}>
                 Daily Target Calories (optional)
               </Text>
               <TextInput
@@ -659,7 +669,11 @@ export default function Goals() {
                 onSubmitEditing={Keyboard.dismiss}
                 style={[
                   s.input,
-                  manualTargetErr ? { borderColor: ERROR } : null,
+                  {
+                    borderColor: manualTargetErr ? ERROR : BORDER,
+                    backgroundColor: CARD_BG,
+                    color: TEXT,
+                  },
                 ]}
               />
               {manualTargetErr ? (
@@ -674,21 +688,21 @@ export default function Goals() {
           style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}
           onPress={Keyboard.dismiss}
         >
-          <Text style={s.label}>Mode</Text>
+          <Text style={[s.label, { color: MUTED }]}>Mode</Text>
           <View style={s.chipsRow}>
             {(["lose", "maintain", "gain"] as const).map((m) => (
-              <Chip key={m} text={cap(m)} active={mode === m} onPress={() => { setMode(m); setHasUnsavedChanges(true); }} accent={ACCENT} />
+              <Chip key={m} text={cap(m)} active={mode === m} onPress={() => { setMode(m); setHasUnsavedChanges(true); }} accent={ACCENT} cardBg={CARD_BG} border={BORDER} textColor={TEXT} />
             ))}
           </View>
 
-          <Text style={[s.label, { marginTop: 18 }]}>Activity Level</Text>
+          <Text style={[s.label, { color: MUTED, marginTop: 18 }]}>Activity Level</Text>
           <View style={s.chipsWrap}>
             {(["sedentary", "light", "moderate", "high"] as const).map((a) => (
-              <Chip key={a} text={cap(a)} active={profile.activityLevel === a} onPress={() => { setActivity(a); setHasUnsavedChanges(true); }} accent={ACCENT} />
+              <Chip key={a} text={cap(a)} active={profile.activityLevel === a} onPress={() => { setActivity(a); setHasUnsavedChanges(true); }} accent={ACCENT} cardBg={CARD_BG} border={BORDER} textColor={TEXT} />
             ))}
           </View>
 
-          <Text style={[s.label, { marginTop: 18 }]}>Weight Units</Text>
+          <Text style={[s.label, { color: MUTED, marginTop: 18 }]}>Weight Units</Text>
           <View style={s.chipsRow}>
             <Chip
               text="lb"
@@ -699,6 +713,9 @@ export default function Goals() {
                 setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
+              cardBg={CARD_BG}
+              border={BORDER}
+              textColor={TEXT}
             />
             <Chip
               text="kg"
@@ -709,10 +726,13 @@ export default function Goals() {
                 setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
+              cardBg={CARD_BG}
+              border={BORDER}
+              textColor={TEXT}
             />
           </View>
 
-          <Text style={[s.label, { marginTop: 18 }]}>Height Units</Text>
+          <Text style={[s.label, { color: MUTED, marginTop: 18 }]}>Height Units</Text>
           <View style={s.chipsRow}>
             <Chip
               text="in"
@@ -723,6 +743,9 @@ export default function Goals() {
                 setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
+              cardBg={CARD_BG}
+              border={BORDER}
+              textColor={TEXT}
             />
             <Chip
               text="cm"
@@ -733,6 +756,9 @@ export default function Goals() {
                 setHasUnsavedChanges(true);
               }}
               accent={ACCENT}
+              cardBg={CARD_BG}
+              border={BORDER}
+              textColor={TEXT}
             />
           </View>
         </Pressable>
@@ -806,11 +832,17 @@ function Chip({
   active,
   onPress,
   accent,
+  cardBg,
+  border,
+  textColor,
 }: {
   text: string;
   active?: boolean;
   onPress: () => void;
   accent: string;
+  cardBg: string;
+  border: string;
+  textColor: string;
 }) {
   return (
     <Pressable
@@ -818,13 +850,13 @@ function Chip({
       style={[
         chipStyles.base,
         {
-          backgroundColor: active ? accent : "#ffffff",
-          borderColor: active ? accent : "#e5e7eb",
+          backgroundColor: active ? accent : cardBg,
+          borderColor: active ? accent : border,
         },
       ]}
       android_ripple={{ color: "#00000010" }}
     >
-      <Text style={[chipStyles.text, { color: active ? "#ffffff" : "#111827" }]}>{text}</Text>
+      <Text style={[chipStyles.text, { color: active ? "#ffffff" : textColor }]}>{text}</Text>
     </Pressable>
   );
 }
@@ -846,11 +878,14 @@ function Tile({
   CARD_BG: string;
   TEXT: string;
 }) {
+  // Calculate muted color from TEXT
+  const MUTED = `${TEXT}99`;
+  
   return (
     <View style={[tileStyles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
       <Text style={[tileStyles.title, { color: TEXT }]}>{title}</Text>
       <Text style={[tileStyles.value, { color: TEXT }]}>{value}</Text>
-      {sub ? <Text style={tileStyles.sub}>{sub}</Text> : null}
+      {sub ? <Text style={[tileStyles.sub, { color: MUTED }]}>{sub}</Text> : null}
       {warning ? <Text style={tileStyles.warning}>{warning}</Text> : null}
     </View>
   );
@@ -876,7 +911,7 @@ const s = StyleSheet.create({
     elevation: 2,
   },
 
-  label: { fontSize: 14, color: "#6b7280", fontWeight: "600" },
+  label: { fontSize: 14, fontWeight: "600" },
 
   chipsRow: { flexDirection: "row", gap: 10, marginTop: 8 },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
@@ -892,8 +927,6 @@ const s = StyleSheet.create({
   input: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -935,7 +968,7 @@ const tileStyles = StyleSheet.create({
   },
   title: { fontSize: 16, fontWeight: "600" },
   value: { fontSize: 26, fontWeight: "800", marginTop: 4 },
-  sub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  sub: { fontSize: 12, marginTop: 2 },
   warning: {
     fontSize: 11,
     color: "#ef4444",
@@ -996,7 +1029,7 @@ const modalStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  linkText: { fontSize: 14, fontWeight: "600", color: "#6b7280" },
+  linkText: { fontSize: 14, fontWeight: "600" },
   cta: {
     flex: 1,
     borderRadius: 12,

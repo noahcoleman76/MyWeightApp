@@ -32,7 +32,7 @@ export default function DateInput({
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
   const MUTED = colors?.border ?? "#e5e7eb";
-  const SUBTLE = "#6b7280";
+  const SUBTLE = colors?.text ? `${colors.text}99` : "#6b7280";
 
   const today = dayjs().startOf("day");
   const minSelectable = today.add(1, "day").toDate();

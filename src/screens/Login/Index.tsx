@@ -1,4 +1,4 @@
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useTheme } from "@react-navigation/native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -10,6 +10,7 @@ import { useAuthStore } from "../../state/authStore";
 
 export default function Login() {
   const nav = useNavigation();
+  const { colors } = useTheme();
   const { signIn, signInWithApple, isLoading, loginError, clearLoginError } = useAuthStore();
 
   const [email, setEmail] = useState("");
@@ -34,10 +35,10 @@ export default function Login() {
   const validateInputs = (): boolean => {
     const emailValidation = AuthValidation.validateEmail(email);
     const passwordValidation = AuthValidation.validatePassword(password);
-    
+
     setEmailError(emailValidation);
     setPasswordError(passwordValidation);
-    
+
     return !emailValidation && !passwordValidation;
   };
 
@@ -46,7 +47,7 @@ export default function Login() {
     // Clear previous errors
     clearLoginError();
     setShowToast(false);
-    
+
     // Validate inputs
     if (!validateInputs()) {
       console.log('❌ Validation failed');
@@ -82,17 +83,24 @@ export default function Login() {
     }
   };
 
+  const TEXT = colors?.text ?? "#111827";
+  const BG = colors?.background ?? "#ffffff";
+  const BORDER = colors?.border ?? "#d1d5db";
+  const ACCENT = colors?.primary ?? "#5eada8";
+  // Secondary text should be more visible than borders
+  const SECONDARY_TEXT = colors?.text ? `${colors.text}99` : "#6b7280";
+
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: BG }]}
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
       {/* Title */}
-      <Text style={styles.title}>Log In</Text>
-      <Text style={styles.subtitle}>
+      <Text style={[styles.title, { color: TEXT }]}>Log In</Text>
+      <Text style={[styles.subtitle, { color: SECONDARY_TEXT }]}>
         Welcome back. Let&apos;s get you logged in.
       </Text>
 
@@ -123,7 +131,7 @@ export default function Login() {
           editable={!isLoading}
           required
         />
-        
+
         <AuthInput
           label="Password"
           placeholder="Enter your password"
@@ -156,10 +164,10 @@ export default function Login() {
       {Platform.OS === "ios" && (
         <>
           {/* OR divider */}
-          < View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+          <View style={styles.dividerContainer}>
+            <View style={[styles.dividerLine, { backgroundColor: BORDER }]} />
+            <Text style={[styles.dividerText, { color: SECONDARY_TEXT }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: BORDER }]} />
           </View>
 
           {/* Apple sign in (iOS only) */}
@@ -182,12 +190,12 @@ export default function Login() {
 
       {/* Don't have an account */}
       <View style={styles.createAccountContainer}>
-        <Text style={styles.createAccountText}>
+        <Text style={[styles.createAccountText, { color: SECONDARY_TEXT }]}>
           Don&apos;t have an account?{" "}
         </Text>
         <Pressable onPress={() => nav.navigate("CreateAccount" as never)}>
           {({ pressed }) => (
-            <Text style={[styles.createAccountLink, { opacity: pressed ? 0.6 : 1, textDecorationLine: "underline" }]}>
+            <Text style={[styles.createAccountLink, { color: ACCENT, opacity: pressed ? 0.6 : 1, textDecorationLine: "underline" }]}>
               Create one.
             </Text>
           )}
@@ -200,7 +208,6 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
     paddingHorizontal: 24,
   },
   contentContainer: {
@@ -210,11 +217,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     fontWeight: '700',
-    color: '#111827',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
     marginTop: 8,
   },
   inputContainer: {
@@ -254,11 +259,9 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#d1d5db',
   },
   dividerText: {
     paddingHorizontal: 12,
-    color: '#6b7280',
   },
   appleButton: {
     width: '100%',
@@ -298,11 +301,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   createAccountText: {
-    color: '#6b7280',
     fontSize: 16,
   },
   createAccountLink: {
-    color: '#5eada8',
     fontWeight: '600',
     fontSize: 16,
   },

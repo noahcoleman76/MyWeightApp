@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@react-navigation/native';
 
 interface AuthInputProps extends TextInputProps {
   label: string;
@@ -30,16 +31,25 @@ export const AuthInput: React.FC<AuthInputProps> = ({
   required = false,
   ...textInputProps
 }) => {
+  const { colors } = useTheme();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const textInputRef = useRef<TextInput>(null);
+
+  const TEXT = colors?.text ?? "#111827";
+  const BORDER = colors?.border ?? "#d1d5db";
+  const BG_LIGHT = colors?.card ?? "#f9fafb";
+  const ACCENT = colors?.primary ?? "#5eada8";
+  const PLACEHOLDER = "#9ca3af";
+  // Secondary text should be more visible than borders
+  const SECONDARY_TEXT = colors?.text ? `${colors.text}99` : "#6b7280";
 
   const hasError = !!error;
   const secureTextEntry = isPassword && !isPasswordVisible;
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={styles.label}>
+      <Text style={[styles.label, { color: TEXT }]}>
         {label}
         {required && <Text style={styles.required}> *</Text>}
       </Text>
@@ -47,14 +57,15 @@ export const AuthInput: React.FC<AuthInputProps> = ({
       <TouchableWithoutFeedback onPress={() => textInputRef.current?.focus()}>
         <View style={[
           styles.inputContainer,
-          isFocused && styles.inputContainerFocused,
+          { borderColor: BORDER, backgroundColor: BG_LIGHT },
+          isFocused && { borderColor: ACCENT, backgroundColor: colors?.background ?? "#ffffff", shadowColor: ACCENT },
           hasError && styles.inputContainerError,
         ]}>
           <TextInput
             ref={textInputRef}
             {...textInputProps}
             secureTextEntry={secureTextEntry}
-            style={[styles.input, textInputProps.style]}
+            style={[styles.input, { color: TEXT }, textInputProps.style]}
             onFocus={(e) => {
               setIsFocused(true);
               textInputProps.onFocus?.(e);
@@ -63,7 +74,7 @@ export const AuthInput: React.FC<AuthInputProps> = ({
               setIsFocused(false);
               textInputProps.onBlur?.(e);
             }}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={PLACEHOLDER}
             blurOnSubmit={false}
             returnKeyType="next"
           />
@@ -78,7 +89,7 @@ export const AuthInput: React.FC<AuthInputProps> = ({
               <Ionicons
                 name={isPasswordVisible ? 'eye' : 'eye-off'}
                 size={20}
-                color="#6b7280"
+                color={SECONDARY_TEXT}
               />
             </TouchableOpacity>
           )}
@@ -102,7 +113,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 6,
   },
   required: {
@@ -112,16 +122,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#d1d5db',
     borderRadius: 8,
-    backgroundColor: '#f9fafb',
     paddingHorizontal: 12,
     minHeight: 48,
-  },
-  inputContainerFocused: {
-    borderColor: '#5eada8',
-    backgroundColor: '#ffffff',
-    shadowColor: '#5eada8',
     shadowOffset: {
       width: 0,
       height: 0,
@@ -137,7 +140,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
     paddingVertical: 12,
   },
   passwordToggle: {

@@ -1,8 +1,7 @@
 import React from "react";
 import { Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import { AppTheme } from "../../styles/theme";
+import { useNavigation, useTheme } from "@react-navigation/native";
 
 interface BackButtonProps {
   onPress?: () => void;
@@ -19,9 +18,11 @@ export default function BackButton({
   text = "Back",
   showText = true,
   iconSize = 25,
-  color = AppTheme.colors.text
+  color
 }: BackButtonProps) {
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const textColor = color ?? colors?.text ?? "#111827";
 
   const handlePress = () => {
     if (onPress) {
@@ -37,9 +38,9 @@ export default function BackButton({
       style={[styles.container, style]}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <Ionicons name="chevron-back" size={iconSize} color={color} />
+      <Ionicons name="chevron-back" size={iconSize} color={textColor} />
       {showText && (
-        <Text style={[styles.text, { color }]}>{text}</Text>
+        <Text style={[styles.text, { color: textColor }]}>{text}</Text>
       )}
     </TouchableOpacity>
   );
