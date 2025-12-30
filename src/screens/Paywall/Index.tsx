@@ -1,7 +1,9 @@
+import { SubscriptionService } from "@/src/lib/subscriptionService";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -31,7 +33,9 @@ export default function Paywall({ navigation }: Props) {
   const PLACEHOLDER = "#9ca3af";
   const LINK_BLUE = "#2563eb";
 
-  const grant = useSubscriptionStore((s) => s.grantDevEntitlement);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+
   const revoke = useSubscriptionStore((s) => s.revokeEntitlement);
   const isEntitled = useSubscriptionStore((s) => s.isEntitled);
 
@@ -63,45 +67,146 @@ export default function Paywall({ navigation }: Props) {
     ]);
   };
 
+  const handlePurchase = async () => {
+    if (isPurchasing) return;
+    setIsPurchasing(true);
+    try {
+      await SubscriptionService.purchaseSubscription("monthly_subscription");
+      // Don't show success here - the purchase listener will handle it
+      // and update the subscription store. If successful, user will be
+      // entitled and can navigate to the app.
+      
+      // Check if purchase was successful by checking entitlement after a short delay
+      setTimeout(() => {
+        if (isEntitled) {
+          Alert.alert(
+            "Welcome to Premium! 🎉",
+            "Your subscription is now active. Enjoy full access to all premium features!",
+            [{ text: "Get Started", onPress: () => goIn() }]
+          );
+        }
+        setIsPurchasing(false);
+      }, 1000);
+    } catch (error: any) {
+      console.error("❌ Purchase failed:", error);
+      setIsPurchasing(false);
+      
+      // Don't show error for user cancellation
+      if (error?.code === "E_USER_CANCELLED") {
+        return;
+      }
+      
+      const errorMessage = error?.message || "An unexpected error occurred";
+      Alert.alert(
+        "Purchase Failed",
+        `There was an issue processing your purchase: ${errorMessage}\nPlease try again or contact support.`
+      );
+    }
+  };
+
+  const handleRestore = async () => {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      const { success, restored } = await SubscriptionService.restorePurchases();
+      if (success && restored) {
+        Alert.alert(
+          "Subscription Restored! ✅",
+          "Your premium access has been restored successfully.",
+          [{ text: "Continue", onPress: () => goIn() }]
+        );
+      } else if (success && !restored) {
+        Alert.alert(
+          "No Active Subscription",
+          "We couldn't find any active subscriptions for this account."
+        );
+      } else {
+        Alert.alert(
+          "Restore Failed",
+          "There was an issue restoring your purchases. Please try again."
+        );
+      }
+    } catch (error: any) {
+      console.error("❌ Restore failed:", error);
+      Alert.alert(
+        "Restore Failed",
+        "There was an issue restoring your purchases. Please try again."
+      );
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   const PrimaryCTA = ({
     onPress,
     disabled = false,
+    loading = false,
   }: {
     onPress: () => void;
     disabled?: boolean;
+    loading?: boolean;
   }) => (
     <Pressable
-      disabled={disabled}
+      disabled={disabled || loading}
       onPress={onPress}
       style={({ pressed }) => [
         styles.primaryButton,
         {
-          backgroundColor: disabled ? "#E5E7EB" : ACCENT,
-          transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
-          opacity: disabled ? 0.7 : 1,
+          backgroundColor: disabled || loading ? "#E5E7EB" : ACCENT,
+          transform: [{ scale: pressed && !disabled && !loading ? 0.98 : 1 }],
+          opacity: disabled || loading ? 0.7 : 1,
         },
       ]}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled: disabled || loading }}
     >
-      <Text style={styles.primaryButtonText}>
-        Start Your Premium Journey
-      </Text>
-      <Text style={styles.primaryButtonSubtext}>
-        $4.99/month
-      </Text>
+      {loading ? (
+        <>
+          <ActivityIndicator color="#FFFFFF" size="small" />
+          <Text style={[styles.primaryButtonText, { marginTop: 8 }]}>
+            Processing...
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.primaryButtonText}>
+            Start Your Premium Journey
+          </Text>
+          <Text style={styles.primaryButtonSubtext}>
+            $4.99/month
+          </Text>
+        </>
+      )}
     </Pressable>
   );
 
   const LinkButton = ({
     title,
     onPress,
+    loading = false,
+    disabled = false,
   }: {
     title: string;
     onPress: () => void;
+    loading?: boolean;
+    disabled?: boolean;
   }) => (
-    <Pressable onPress={onPress} accessibilityRole="button">
-      <Text style={[styles.linkText, { color: LINK_BLUE }]}>{title}</Text>
+    <Pressable 
+      onPress={onPress} 
+      disabled={disabled || loading}
+      accessibilityRole="button"
+      style={{ opacity: disabled || loading ? 0.5 : 1 }}
+    >
+      {loading ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <ActivityIndicator size="small" color={LINK_BLUE} />
+          <Text style={[styles.linkText, { color: LINK_BLUE }]}>
+            {title}...
+          </Text>
+        </View>
+      ) : (
+        <Text style={[styles.linkText, { color: LINK_BLUE }]}>{title}</Text>
+      )}
     </Pressable>
   );
 
@@ -156,17 +261,27 @@ export default function Paywall({ navigation }: Props) {
 
         {/* Actions */}
         <View style={styles.actions}>
-          <PrimaryCTA onPress={() => { grant(); goIn(); }} />
+          <PrimaryCTA 
+            onPress={handlePurchase} 
+            loading={isPurchasing}
+            disabled={isPurchasing || isRestoring}
+          />
           
           <Text style={[styles.terms, { color: PLACEHOLDER }]}>
-            Auto-renews monthly. Cancel anytime in settings.
+            Auto-renews monthly. Cancel anytime in your account settings.
           </Text>
 
-          {/* Secondary actions */}
-          <View style={styles.secondaryActions}>
-            <LinkButton title="Restore Purchases" onPress={() => { grant(); goIn(); }} />
-            <Text style={[styles.separator, { color: MUTED }]}>•</Text>
-            <LinkButton title="Skip Trial" onPress={goIn} />
+          {/* Restore purchases info and button */}
+          <View style={styles.restoreSection}>
+            <Text style={[styles.restoreInfo, { color: PLACEHOLDER }]}>
+              Already subscribed or paid before? Restore your purchase.
+            </Text>
+            <LinkButton 
+              title="Restore Purchase" 
+              onPress={handleRestore}
+              loading={isRestoring}
+              disabled={isPurchasing || isRestoring}
+            />
           </View>
         </View>
 
@@ -325,6 +440,8 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 320,
     alignItems: "center",
+    minHeight: 68,
+    justifyContent: "center",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -351,6 +468,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 16,
     maxWidth: 280,
+  },
+  restoreSection: {
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  restoreInfo: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
+    maxWidth: 300,
   },
   secondaryActions: {
     flexDirection: "row",

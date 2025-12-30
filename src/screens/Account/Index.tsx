@@ -1,16 +1,17 @@
 // src/screens/Account/Index.tsx
+import { SubscriptionService } from "@/src/lib/subscriptionService";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import React, { useState } from "react";
 import {
-  Alert,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Linking,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../../components/ui/Button";
@@ -19,6 +20,7 @@ import { FirebaseAuthService } from "../../lib/firebase";
 import { UserDataService } from "../../lib/userDataService";
 import { useAuthStore } from "../../state/authStore";
 import { useProfileStore } from "../../state/profileStore";
+import { useSubscriptionStore } from "../../state/subscriptionStore";
 
 export default function Account() {
   const { colors } = useTheme();
@@ -30,7 +32,10 @@ export default function Account() {
 
   const { profile, setName } = useProfileStore();
   const { user, signOut, deleteAccount, isLoading } = useAuthStore();
+  const { isEntitled, productId, lastPurchaseDate } = useSubscriptionStore();
+  
   const [name, setNameLocal] = useState(profile.name);
+  const [isRestoring, setIsRestoring] = useState(false);
   
   // Update local state when profile changes
   React.useEffect(() => {
@@ -142,6 +147,61 @@ export default function Account() {
     );
   };
 
+  /**
+   * Open system subscription management
+   * iOS: Opens Apple ID subscriptions in Settings
+   * Android: Opens Google Play subscriptions
+   */
+  const handleManageSubscription = async () => {
+    try {
+      await SubscriptionService.openSubscriptionManagement();
+    } catch (error) {
+      console.error("Error opening subscription management:", error);
+      Alert.alert(
+        "Unable to Open Settings",
+        "Please manage your subscription through:\n\niOS: Settings > Apple ID > Subscriptions\nAndroid: Play Store > Menu > Subscriptions"
+      );
+    }
+  };
+
+  /**
+   * Restore previous purchases
+   * This should NOT charge the user
+   */
+  const handleRestorePurchase = async () => {
+    if (isRestoring) return;
+
+    setIsRestoring(true);
+    try {
+      const { success, restored } = await SubscriptionService.restorePurchases();
+
+      if (success && restored) {
+        Alert.alert(
+          "Subscription Restored! ✅",
+          "Your premium access has been restored successfully."
+        );
+      } else if (success && !restored) {
+        Alert.alert(
+          "No Active Subscription",
+          "We couldn't find any active subscriptions for this account. If you believe this is an error, please contact support."
+        );
+      } else {
+        Alert.alert(
+          "Restore Failed",
+          "There was an issue restoring your purchases. Please try again or contact support."
+        );
+      }
+    } catch (error) {
+      console.error("Error restoring purchases:", error);
+      Alert.alert(
+        "Restore Failed",
+        "There was an issue restoring your purchases. Please try again."
+      );
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: colors?.background ?? "#f3f4f6" }]}>
       <ToastComponent
@@ -226,6 +286,80 @@ export default function Account() {
             </View>
           </View>
         )}
+
+        {/* Subscription Section */}
+        <View style={s.full}>
+          <View style={[s.card, { borderColor: BORDER, backgroundColor: CARD_BG }]}>
+            <Text style={[s.sectionTitle, { color: TEXT }]}>Subscription</Text>
+
+            {/* Subscription Status */}
+            <View style={[s.subscriptionStatus, { backgroundColor: isEntitled ? "#f0fdf4" : "#fef2f2", borderColor: isEntitled ? "#86efac" : "#fecaca" }]}>
+              <View style={s.statusHeader}>
+                <MaterialIcons 
+                  name={isEntitled ? "check-circle" : "info"} 
+                  size={24} 
+                  color={isEntitled ? "#16a34a" : "#dc2626"} 
+                />
+                <Text style={[s.statusTitle, { color: isEntitled ? "#16a34a" : "#dc2626" }]}>
+                  {isEntitled ? "Premium Active" : "No Active Subscription"}
+                </Text>
+              </View>
+              
+              {isEntitled && productId && (
+                <View style={s.statusDetails}>
+                  <Text style={[s.statusDetail, { color: "#6b7280" }]}>
+                    Plan: Monthly Premium
+                  </Text>
+                  {lastPurchaseDate && (
+                    <Text style={[s.statusDetail, { color: "#6b7280" }]}>
+                      Active since: {new Date(lastPurchaseDate).toLocaleDateString()}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            <View style={s.linkGroup}>
+              {/* Manage Subscription */}
+              {isEntitled && (
+                <TouchableOpacity
+                  style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
+                  onPress={handleManageSubscription}
+                >
+                  <View style={s.linkContent}>
+                    <MaterialIcons name="settings" size={20} color={primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.linkText, { color: TEXT }]}>Manage Subscription</Text>
+                      <Text style={[s.linkSubtext, { color: "#6b7280" }]}>
+                        View or cancel your subscription
+                      </Text>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color="#9ca3af" />
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Restore Purchase */}
+              <Button
+                title={isRestoring ? "Restoring..." : "Restore Purchase"}
+                onPress={handleRestorePurchase}
+                disabled={isRestoring}
+                variant="ghost"
+                accentColor={primary}
+                style={{ backgroundColor: colors?.background ?? "#f9fafb" }}
+              />
+            </View>
+
+            {/* Info Text */}
+            <View style={s.infoBox}>
+              <Text style={[s.infoText, { color: "#6b7280" }]}>
+                {isEntitled 
+                  ? "To cancel your subscription, use the 'Manage Subscription' button above. Your subscription will remain active until the end of the current billing period."
+                  : "Already subscribed? Use 'Restore Purchase' to regain access. If you haven't subscribed yet, you'll see the paywall on next app launch."}
+              </Text>
+            </View>
+          </View>
+        </View>
 
         {/* Help & Legal Section */}
         <View style={s.full}>
@@ -489,6 +623,48 @@ const s = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  
+  // Subscription section styles
+  subscriptionStatus: {
+    borderRadius: 16,
+    borderWidth: 2,
+    padding: 16,
+    marginBottom: 16,
+  },
+  statusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 8,
+  },
+  statusTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  statusDetails: {
+    marginLeft: 36,
+    gap: 4,
+  },
+  statusDetail: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  linkSubtext: {
+    fontSize: 13,
+    marginTop: 2,
+    fontWeight: "400",
+  },
+  infoBox: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 16,
+  },
+  infoText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "400",
   },
 });
 

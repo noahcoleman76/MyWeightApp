@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { UserDataService } from "../lib/userDataService";
 import { useAuthStore } from "../state/authStore";
 import { useOnboardingStore } from "../state/onboardingStore";
+import { useSubscriptionInit } from "../hooks/useSubscriptionInit";
 
 // Onboarding / marketing
 import Marketing1 from "../screens/Onboarding/Marketing1";
@@ -82,6 +83,9 @@ export default function RootNavigator() {
   const { isLoggedIn, isInitializing, user } = useAuthStore();
   const { currentScreen, shouldResumeOnboarding, isUploadedToFirestore } = useOnboardingStore();
   
+  // Initialize subscription service on app startup
+  const { isInitialized: isSubInitialized } = useSubscriptionInit();
+  
   // Simple state machine for navigation flow
   const [navState, setNavState] = useState<'splash' | 'checking' | 'ready'>('splash');
   
@@ -125,8 +129,8 @@ export default function RootNavigator() {
   // STEP 2: Check Firestore when user logs in (one-time per user session)
   // ============================================================================
   useEffect(() => {
-    // Only run if we're past splash and auth is initialized
-    if (navState !== 'checking' || isInitializing) {
+    // Only run if we're past splash and auth is initialized and subscription is initialized
+    if (navState !== 'checking' || isInitializing || !isSubInitialized) {
       return;
     }
 
@@ -160,7 +164,7 @@ export default function RootNavigator() {
       hasCheckedUserRef.current = null;
       setNavState('ready');
     }
-  }, [navState, isInitializing, isLoggedIn, user]);
+  }, [navState, isInitializing, isLoggedIn, user, isSubInitialized]);
 
   // ============================================================================
   // STEP 3: Navigate based on auth + onboarding state (declarative)
