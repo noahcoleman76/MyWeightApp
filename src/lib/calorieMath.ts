@@ -62,27 +62,23 @@ export function computeDailyTarget({
 }) {
   const base = tdee(sex, age, heightCm, currentWeightKg, activity);
 
-  let delta = 0; // calories vs maintenance
+  let delta = 0;
 
   if (mode === "maintain") {
     delta = 0;
   } else if (goalWeightKg != null && targetDateISO) {
-    // use exact math based on goal date
     const now = dayjs();
     const end = dayjs(targetDateISO);
     const days = Math.max(1, end.diff(now, "day"));
 
-    const kgDiff = goalWeightKg - currentWeightKg; // negative if losing, positive if gaining
+    const kgDiff = goalWeightKg - currentWeightKg;
     const kcalNeeded = kgDiff * 7700;
-    const perDay = kcalNeeded / days; // negative = deficit, positive = surplus
+    const perDay = kcalNeeded / days;
 
-    // 👉 no clamp: let the date fully determine the deficit/surplus
     delta = perDay;
   } else if (mode === "lose") {
-    // fallback if no goal weight or date
     delta = -500;
   } else if (mode === "gain") {
-    // fallback if no goal weight or date
     delta = +250;
   }
 
@@ -91,14 +87,13 @@ export function computeDailyTarget({
 }
 
 
-/** Estimate completion date from average daily deficit/surplus trend (simple). */
 export function estimateCompletionDate({
   mode, currentWeightKg, goalWeightKg, avgDailyDeltaKcal,
 }: {
   mode: Mode;
   currentWeightKg: number;
   goalWeightKg?: number;
-  avgDailyDeltaKcal: number; // negative if deficit
+  avgDailyDeltaKcal: number;
 }) {
   if (!goalWeightKg || mode === "maintain" || avgDailyDeltaKcal === 0) return undefined;
   const kgRemaining = goalWeightKg - currentWeightKg;

@@ -1,4 +1,3 @@
-// src/components/ui/AuthInput.tsx
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -41,7 +40,6 @@ export const AuthInput: React.FC<AuthInputProps> = ({
   const BG_LIGHT = colors?.card ?? "#f9fafb";
   const ACCENT = colors?.primary ?? "#5eada8";
   const PLACEHOLDER = "#9ca3af";
-  // Secondary text should be more visible than borders
   const SECONDARY_TEXT = colors?.text ? `${colors.text}99` : "#6b7280";
 
   const hasError = !!error;

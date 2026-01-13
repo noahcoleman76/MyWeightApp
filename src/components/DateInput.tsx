@@ -40,12 +40,10 @@ export default function DateInput({
   const [selected, setSelected] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState<boolean>(false);
 
-  // Display: "October 13, 2026"
   const formattedPretty = useMemo(
     () => (selected ? dayjs(selected).format("MMMM D, YYYY") : ""),
     [selected]
   );
-  // Value sent to onConfirm
   const formattedIso = useMemo(
     () => (selected ? dayjs(selected).format("YYYY-MM-DD") : ""),
     [selected]
@@ -74,13 +72,11 @@ export default function DateInput({
 
   const onChange = (_e: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === "android") {
-      // On Android, picker is dismissed automatically
       setShowPicker(false);
       if (date && dayjs(date).isAfter(today, "day")) {
         setSelected(date);
       }
     } else {
-      // On iOS, keep modal open and update selection
       if (date && dayjs(date).isAfter(today, "day")) {
         setSelected(date);
         setShowPicker(false);
@@ -92,16 +88,13 @@ export default function DateInput({
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
       <BackButton />
       <View style={styles.wrap}>
-        {/* Title */}
         <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 
-        {/* Helper blurb */}
         <Text style={[styles.blurb, { color: SUBTLE }]}>
           Do you have an end date to reach your goals? This optional goal helps us
           create a tailored plan for you to absolutely crush your goal.
         </Text>
 
-        {/* Pressable display field */}
         <View style={styles.inputBlock}>
           <Pressable
             onPress={openPicker}
@@ -113,7 +106,6 @@ export default function DateInput({
           </Pressable>
         </View>
 
-        {/* CTA */}
         <Pressable
           disabled={!canProceed}
           onPress={handlePress}
@@ -128,7 +120,6 @@ export default function DateInput({
           <Text style={styles.ctaText}>{buttonTitle}</Text>
         </Pressable>
 
-        {/* Android: Native picker (no custom modal wrapper) */}
         {Platform.OS === "android" && showPicker && (
           <DateTimePicker
             mode="date"
@@ -139,7 +130,6 @@ export default function DateInput({
           />
         )}
 
-        {/* iOS: Custom Modal with inline picker */}
         {Platform.OS === "ios" && (
           <Modal
             animationType="fade"
@@ -148,9 +138,7 @@ export default function DateInput({
             onRequestClose={closePicker}
             presentationStyle="overFullScreen"
           >
-            {/* Backdrop closes modal on press */}
             <Pressable style={styles.modalBackdrop} onPress={closePicker}>
-              {/* Card intercepts press to avoid closing */}
               <Pressable
                 style={[styles.modalCard, { backgroundColor: BG, borderColor: MUTED }]}
                 onPress={(e) => e.stopPropagation()}
@@ -182,7 +170,9 @@ export default function DateInput({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: {
+    flex: 1
+  },
   wrap: {
     flex: 1,
     paddingHorizontal: 24,
@@ -218,8 +208,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: "center",
   },
-
-  // CTA
   cta: {
     marginTop: 16,
     width: 260,
@@ -234,8 +222,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textTransform: "capitalize",
   },
-
-  // Modal + picker container
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -265,10 +251,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 4,
   },
-  // Keep the picker comfortably within the card
   picker: {
     width: "100%",
-    // Slight scale reduces visual crowding, especially on Android calendar
     transform:
       Platform.select({
         ios: [{ scale: 0.98 }],

@@ -10,14 +10,13 @@ import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 const BASE = ["health concerns", "mobility", "self image", "training", "personal growth"];
 
 export default function Motivation() {
-  useOnboardingTracker("Motivation"); // Track this screen
+  useOnboardingTracker("Motivation");
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const mode = useGoalStore((s) => s.mode);
   const setMotivation = useProfileStore((s) => s.setMotivation);
   const [sel, setSel] = useState<string[]>([]);
 
-  // Match consistent palette tokens
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";

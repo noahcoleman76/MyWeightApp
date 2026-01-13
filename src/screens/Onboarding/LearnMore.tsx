@@ -10,7 +10,6 @@ type Props = NativeStackScreenProps<RootStackParamList, "OnboardingLearnMore">;
 export default function LearnMore({ navigation }: Props) {
   const { colors } = useTheme();
 
-  // Match HowItWorks palette tokens
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";

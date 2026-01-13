@@ -7,9 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context"; // ✅ use this one
+import { SafeAreaView } from "react-native-safe-area-context";
 import BackButton from "./ui/BackButton";
-
 
 type Option = { label: string; value: string };
 
@@ -17,7 +16,7 @@ type Props = {
   title: string;
   options: Option[];
   onConfirm: (value: string) => void;
-  accentColor?: string; // optional, falls back to theme primary
+  accentColor?: string;
   confirmLabel?: string;
 };
 

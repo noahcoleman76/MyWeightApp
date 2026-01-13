@@ -21,21 +21,18 @@ export function useStreakSync() {
     
     const syncStreak = async () => {
       try {
-        // Fetch latest streak data from Firestore
         const userData = await FirestoreService.getUserData(user.uid);
         
         if (isCancelled) return;
         
         if (userData?.streak) {
           setStreak(userData.streak);
-          console.log('🔥 Streak synced from Firestore:', userData.streak);
         }
       } catch (error) {
         console.error('❌ Failed to sync streak:', error);
       }
     };
     
-    // Sync on mount
     syncStreak();
     
     return () => {

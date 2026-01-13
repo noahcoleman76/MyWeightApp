@@ -6,10 +6,9 @@ export type GoalMode = "lose" | "gain" | "maintain";
 
 type GoalState = {
   mode: GoalMode;
-  goalWeightKg?: number;     // kg
-  targetDateISO?: string;    // yyyy-mm-dd
+  goalWeightKg?: number;
+  targetDateISO?: string;
 
-  /** If set, this overrides computed daily target calories */
   dailyTargetOverride?: number;
 
   setMode: (m: GoalMode) => void;

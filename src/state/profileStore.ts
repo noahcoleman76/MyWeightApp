@@ -11,17 +11,17 @@ export interface Profile {
   name: string;
   email?: string;
   gender: "male" | "female";
-  age: number;                 // years
-  height: number;              // cm
-  currentWeightKg: number;       // kg
-  startingWeightKg?: number;   // kg  <-- NEW
+  age: number;
+  height: number;
+  currentWeightKg: number;
+  startingWeightKg?: number;
   activityLevel: ActivityLevel;
-  startDate: string;           // ISO
-  weightUnit?: WeightUnit;     // display preference
-  heightUnit?: HeightUnit;     // display preference
+  startDate: string;
+  weightUnit?: WeightUnit;
+  heightUnit?: HeightUnit;
   motivation?: string[];
   concerns?: string[];
-  streak?: StreakData;         // Streak data synced from backend
+  streak?: StreakData;
 }
 
 type ProfileStore = {
@@ -32,12 +32,12 @@ type ProfileStore = {
   setAgeFromBirthYear: (year: number) => void;
   setHeightCm: (cm: number) => void;
   setCurrentWeightKg: (kg: number) => void;
-  setStartingWeightKg: (kg: number) => void; // <-- NEW
+  setStartingWeightKg: (kg: number) => void;
   setActivity: (a: ActivityLevel) => void;
   setUnits: (w: WeightUnit, h: HeightUnit) => void;
   setMotivation: (vals: string[]) => void;
   setConcerns: (vals: string[]) => void;
-  setStreak: (streak: StreakData) => void;  // NEW
+  setStreak: (streak: StreakData) => void;
   reset: () => void;
 };
 
@@ -47,7 +47,7 @@ const defaultProfile: Profile = {
   age: 25,
   height: 175,
   currentWeightKg: 80,
-  startingWeightKg: 80, // default to current
+  startingWeightKg: 80,
   activityLevel: "light",
   startDate: new Date().toISOString(),
   weightUnit: "lb",
@@ -67,20 +67,19 @@ export const useProfileStore = create<ProfileStore>()(
         })),
       setHeightCm: (height) => set((s) => ({ profile: { ...s.profile, height } })),
       setCurrentWeightKg: (currentWeightKg) => set((s) => ({ profile: { ...s.profile, currentWeightKg } })),
-      setStartingWeightKg: (kg) => set((s) => ({ profile: { ...s.profile, startingWeightKg: kg } })), // NEW
+      setStartingWeightKg: (kg) => set((s) => ({ profile: { ...s.profile, startingWeightKg: kg } })),
       setActivity: (activityLevel) => set((s) => ({ profile: { ...s.profile, activityLevel } })),
       setUnits: (weightUnit, heightUnit) => set((s) => ({ profile: { ...s.profile, weightUnit, heightUnit } })),
       setMotivation: (motivation) => set((s) => ({ profile: { ...s.profile, motivation } })),
       setConcerns: (concerns) => set((s) => ({ profile: { ...s.profile, concerns } })),
-      setStreak: (streak) => set((s) => ({ profile: { ...s.profile, streak } })),  // NEW
+      setStreak: (streak) => set((s) => ({ profile: { ...s.profile, streak } })),
       reset: () => set({ profile: defaultProfile }),
     }),
     {
       name: "profileStore",
       storage: createJSONStorage(() => ({ getItem, setItem, removeItem })),
-      version: 5, // bumped due to streak field
+      version: 5,
       migrate: (persisted: any, _v) => {
-        // If migrating from older versions, fill startingWeightKg if missing
         if (persisted?.state?.profile && persisted.state.profile.startingWeightKg == null) {
           persisted.state.profile.startingWeightKg = persisted.state.profile.currentWeightKg ?? 80;
         }

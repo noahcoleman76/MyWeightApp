@@ -12,13 +12,12 @@ import { useAuthStore } from "../../state/authStore";
 type Props = NativeStackScreenProps<RootStackParamList, "Encouragement">;
 
 export default function Encouragement({ navigation }: Props) {
-  useOnboardingTracker("Encouragement"); // Track this screen
-  
+  useOnboardingTracker("Encouragement");
+
   const { colors } = useTheme();
   const { user } = useAuthStore();
   const [isUploading, setIsUploading] = useState(false);
 
-  // Match DateInput palette tokens
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
@@ -27,29 +26,22 @@ export default function Encouragement({ navigation }: Props) {
 
   const onNext = async () => {
     if (!user || isUploading) return;
-    
+
     try {
       setIsUploading(true);
-      console.log('🔄 Uploading user data to Firestore...');
-      
-      // Upload all collected user data to Firestore
       await UserDataService.uploadUserDataToFirestore(user.uid);
-      
-      console.log('✅ User data uploaded successfully, navigating to Paywall');
+
       navigation.navigate("Paywall");
     } catch (error) {
       console.error('❌ Failed to upload user data:', error);
-      // Still navigate to paywall for now, but could show error message
       navigation.navigate("Paywall");
     } finally {
       setIsUploading(false);
     }
   };
-  
+
   const onLearnMore = () => navigation.navigate("OnboardingLearnMore");
 
-  // You have great potential to crush your goal.
-  // We’ll guide your daily targets and help you stay consistent.
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
       <BackButton />
@@ -60,14 +52,10 @@ export default function Encouragement({ navigation }: Props) {
         {/* Title */}
         <Text style={[styles.title, { color: TEXT }]}>You have great potential to crush your goal.</Text>
 
-        {/* Helper blurb (matches DateInput tone/spacing) */}
         <Text style={[styles.blurb, { color: SUBTLE }]}>
           We’ll guide your daily targets and help you stay consistent.
         </Text>
 
-        
-
-        {/* Primary CTA — styled like DateInput.cta */}
         <Pressable
           onPress={onNext}
           disabled={isUploading}
@@ -87,7 +75,6 @@ export default function Encouragement({ navigation }: Props) {
           </Text>
         </Pressable>
 
-        {/* Secondary link (optional, mirrors DateInput’s subtle actions style) */}
         <Pressable onPress={onLearnMore} style={styles.secondary}>
           <Text style={[styles.secondaryText, { color: SUBTLE }]}>Learn more</Text>
         </Pressable>
@@ -103,7 +90,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: "center",
     alignItems: "center",
-    gap: 16, // mirrors DateInput vertical rhythm
+    gap: 16,
     paddingBottom: 24,
     paddingTop: 24,
   },
@@ -119,7 +106,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
   },
   inputBlock: {
-    width: 280, // same constrained width used in DateInput.inputBlock
+    width: 280,
     marginTop: 8,
     alignItems: "stretch",
     gap: 12,
@@ -148,8 +135,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     maxWidth: 360,
   },
-
-  // CTA (mirrors DateInput.cta)
   cta: {
     marginTop: 16,
     width: 260,
@@ -157,7 +142,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 0, // visually consistent with DateInput's filled CTA
+    borderWidth: 0,
   },
   ctaText: {
     color: "#FFFFFF",
@@ -165,8 +150,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textTransform: "none",
   },
-
-  // Secondary subtle link (akin to "Choose date later" styling)
   secondary: {
     marginTop: 8,
     borderRadius: 12,

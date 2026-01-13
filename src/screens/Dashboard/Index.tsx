@@ -1,11 +1,10 @@
-// app/screens/Dashboard/Index.tsx
-
-// ─────────────────────────── Imports ───────────────────────────
 import {
   useFocusEffect,
   useNavigation,
   useTheme,
 } from "@react-navigation/native";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -16,12 +15,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Button from "../../components/ui/Button";
-import { Toast } from "../../components/ui/Toast";
-
-import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
-
 import {
   VictoryArea,
   VictoryAxis,
@@ -31,46 +24,33 @@ import {
   VictoryTooltip,
   VictoryVoronoiContainer,
 } from "victory-native";
-
-// ── Internal libs & state stores
-import { useAppStore } from "@/src/state/appStore";
-import { useSubscriptionStore } from "@/src/state/subscriptionStore";
+import Button from "../../components/ui/Button";
+import { Toast } from "../../components/ui/Toast";
+import { useStreakSync } from "../../hooks/useStreakSync";
 import { computeDailyTarget, kgToLb } from "../../lib/calorieMath";
+import { FirestoreService } from "../../lib/firebase";
 import { getItem, setItem } from "../../lib/mmkv";
+import { useAuthStore } from "../../state/authStore";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
-import { useStreakSync } from "../../hooks/useStreakSync";
-import { useAuthStore } from "../../state/authStore";
-import { FirestoreService } from "../../lib/firebase";
 
-// ─────────────────────────── Setup ───────────────────────────
 dayjs.extend(customParseFormat);
 
-// Strict YYYY-MM-DD parsing
 const parseISO = (iso?: string) => dayjs(iso, "YYYY-MM-DD", true);
-
-// Round to 1 decimal place
 const round1 = (n: number) => Math.round(n * 10) / 10;
-
-// Convert kg → lb (rounded to 1 decimal)
 const toLb = (kg: number) => round1(kgToLb(kg));
 
-// Persistent keys
-const START_DAY_KEY = "start_day_iso"; // set during onboarding CurrentWeight
-const FIRST_SEEN_KEY = "first_dashboard_seen_iso"; // legacy / fallback
+const START_DAY_KEY = "start_day_iso";
+const FIRST_SEEN_KEY = "first_dashboard_seen_iso";
 
-// Layout constants (used with window width)
-const SCREEN_MARGIN = 20; // styles.full marginHorizontal
-const CARD_PADDING = 16; // styles.card padding
-const WRAP_PADDING = 8; // styles.chartWrap paddingHorizontal
+const SCREEN_MARGIN = 20;
+const CARD_PADDING = 16;
+const WRAP_PADDING = 8;
 
-// Tiny float-safe equality check for singular/plural units
 const isExactlyOne = (n: number) => Math.abs(n - 1) < 1e-9;
 
-// ─────────────────────────── Component ───────────────────────────
 export default function Dashboard() {
-  // ── Navigation / theme / layout
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const scrollRef = React.useRef<ScrollView | null>(null);
@@ -81,10 +61,8 @@ export default function Dashboard() {
     winW - SCREEN_MARGIN * 2 - CARD_PADDING * 2 - WRAP_PADDING * 2
   );
 
-  // ── Sync streak data from backend
   useStreakSync();
   
-  // ── Refresh streak when Dashboard comes into focus
   const user = useAuthStore((s) => s.user);
   const setStreak = useProfileStore((s) => s.setStreak);
   
@@ -97,10 +75,9 @@ export default function Dashboard() {
           const userData = await FirestoreService.getUserData(user.uid);
           if (userData?.streak) {
             setStreak(userData.streak);
-            console.log('🔥 Streak refreshed on Dashboard focus:', userData.streak);
           }
         } catch (error) {
-          console.error('❌ Failed to refresh streak:', error);
+          console.error("❌ Failed to refresh streak:", error);
         }
       };
       
@@ -108,28 +85,15 @@ export default function Dashboard() {
     }, [user, setStreak])
   );
 
-  // ── Store hooks
   const { profile } = useProfileStore();
   const { goalWeightKg, targetDateISO, dailyTargetOverride, mode } = useGoalStore();
-  const { logs, streak: calculateStreak } = useLogStore(); // Keep frontend calc as fallback
+  const { logs, streak: calculateStreak } = useLogStore();
 
-  // Use backend streak from profile, fallback to calculated if not available
   const currentStreak = profile.streak?.current ?? calculateStreak();
   const longestStreak = profile.streak?.longest ?? 0;
 
-  const resetProfile = useProfileStore((s) => s.reset);
-  const resetGoal = useGoalStore((s) => s.reset);
-  const resetLogs = useLogStore((s) => s.reset);
-  const resetSub = useSubscriptionStore((s) => s.reset);
-  const setLoggedIn = useAppStore((s) => s.setLoggedIn);
-  const setOnboardingDone = useAppStore((s) => s.setOnboardingDone);
-
-  // Toast state
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastType, setToastType] = useState<"success" | "error">("success");
 
-  // ── Theme colors
   const ACCENT = colors?.primary ?? "#5eada8";
   const TEXT = colors?.text ?? "#0f172a";
   const BG = colors?.background ?? "#f7f7f7";
@@ -137,7 +101,6 @@ export default function Dashboard() {
   const BORDER = colors?.border ?? "#eef2f7";
   const MUTED = colors?.text ? `${colors.text}99` : "#6b7280";
 
-  // ── Units
   const DISPLAY_UNIT: "kg" | "lb" =
     profile.weightUnit === "kg" ? "kg" : "lb";
 
@@ -146,9 +109,6 @@ export default function Dashboard() {
     [DISPLAY_UNIT]
   );
 
-  // ─────────────────────────── Effects ───────────────────────────
-
-  // Always scroll dashboard to top when focused
   useFocusEffect(
     React.useCallback(() => {
       const timeout = setTimeout(() => {
@@ -159,7 +119,6 @@ export default function Dashboard() {
     }, [])
   );
 
-  // Ensure FIRST_SEEN_KEY exists for legacy users (without overriding start_day)
   useEffect(() => {
     const rawSeen = getItem(FIRST_SEEN_KEY);
     const ok =
@@ -168,14 +127,6 @@ export default function Dashboard() {
     if (!ok) setItem(FIRST_SEEN_KEY, dayjs().format("YYYY-MM-DD"));
   }, []);
 
-  // ─────────────────────────── Chart: start anchor ───────────────────────────
-
-  /**
-   * Resolve dashboard "start day" (for chart anchor):
-   * 1) Use onboarding start_day_iso if valid
-   * 2) Else use first_dashboard_seen_iso if valid
-   * 3) Else fall back to "today" and persist as FIRST_SEEN_KEY
-   */
   const chartStartISO: string = useMemo(() => {
     const rawStart = getItem(START_DAY_KEY);
     const normStart = parseISO(
@@ -194,10 +145,6 @@ export default function Dashboard() {
     return today;
   }, []);
 
-  /**
-   * Earliest log that has a valid weight & date.
-   * Used so the chart never starts *after* your first real data point.
-   */
   const earliestLogISO: string | undefined = useMemo(() => {
     const withWt = logs.filter(
       (l) => typeof l.weightKg === "number" && parseISO(l.dateISO).isValid()
@@ -216,11 +163,6 @@ export default function Dashboard() {
     return withWt[0].dateISO;
   }, [logs]);
 
-  /**
-   * Final anchor start date: the *earlier* of:
-   * - dashboard start date
-   * - earliest log date
-   */
   const anchorStartISO: string = useMemo(() => {
     const a = parseISO(chartStartISO);
     const b = parseISO(earliestLogISO);
@@ -233,21 +175,9 @@ export default function Dashboard() {
     if (aValid) return a.format("YYYY-MM-DD");
     if (bValid) return b.format("YYYY-MM-DD");
 
-    // Defensive: should never happen since chartStartISO falls back to today.
     return dayjs().format("YYYY-MM-DD");
   }, [chartStartISO, earliestLogISO]);
 
-  // ─────────────────────────── Chart: series & domains ───────────────────────────
-
-  /**
-   * Build the weight series for the chart:
-   * - Add an anchor point at anchorStartISO using:
-   *   startingWeightKg → earliest log weight → current profile weight
-   * - Append all weight logs in ascending date order
-   * - Ensure at least 2 x-points (so Victory can render a span)
-   * - Deduplicate by calendar day
-   * - Convert to display units (kg/lb) with rounding
-   */
   const baseSeries = useMemo(() => {
     const weightLogsAsc = logs
       .filter(
@@ -288,7 +218,6 @@ export default function Dashboard() {
       }
     }
 
-    // If we only have the anchor point, add one more point today
     if (pts.length === 1) {
       pts.push({
         x: dayjs().endOf("day").toDate(),
@@ -296,7 +225,6 @@ export default function Dashboard() {
       });
     }
 
-    // Deduplicate by calendar day & filter out invalid points
     const byDay = new Map<string, { x: Date; y: number }>();
     for (const p of pts) {
       if (
@@ -319,20 +247,17 @@ export default function Dashboard() {
     toDisplay,
   ]);
 
-  // Pin X domain so Victory doesn't auto-rescale across rerenders
   const domainX = useMemo<[Date, Date] | undefined>(() => {
     if (!baseSeries.length) return undefined;
     const start = baseSeries[0].x;
     const last = baseSeries[baseSeries.length - 1].x;
 
-    // If same moment, pad to +1 day
     if (+last - +start < 60 * 60 * 1000) {
       return [start, dayjs(start).add(1, "day").toDate()];
     }
     return [start, last];
   }, [baseSeries]);
 
-  // Generate x-axis ticks: weekly for short spans, monthly for long spans
   const { xTicks, xTickFormat } = useMemo(() => {
     if (!domainX)
       return { xTicks: [], xTickFormat: (_: Date) => "" };
@@ -367,7 +292,6 @@ export default function Dashboard() {
     };
   }, [domainX]);
 
-  // Y domain: pad by 10% (min 0.5) so lines aren't hugging edges
   const domainY = useMemo<[number, number] | undefined>(() => {
     if (!baseSeries.length) return undefined;
 
@@ -383,18 +307,11 @@ export default function Dashboard() {
     return [Math.floor(min - pad), Math.ceil(max + pad)];
   }, [baseSeries]);
 
-  // Reference line for starting weight (dashed)
   const startRefY =
     typeof profile.startingWeightKg === "number"
       ? toDisplay(profile.startingWeightKg)
       : undefined;
 
-  // ─────────────────────────── Weight & calories ───────────────────────────
-
-  /**
-   * Latest logged weight (if any).
-   * Used as "current" for tiles & goal date estimation.
-   */
   const latestLogged = useMemo(() => {
     const withWt = logs.filter(
       (l) => typeof l.weightKg === "number"
@@ -406,7 +323,6 @@ export default function Dashboard() {
       };
     }
 
-    // Most recent by date, then by id
     withWt.sort((a, b) =>
       a.dateISO === b.dateISO
         ? a.id < b.id
@@ -423,13 +339,11 @@ export default function Dashboard() {
     };
   }, [logs]);
 
-  // Fallback order: latest log → startingWeightKg → profile.currentWeightKg
   const currentWeightKg =
     latestLogged.kg ??
     profile.startingWeightKg ??
     profile.currentWeightKg;
 
-  // Compute maintenance & target using calorieMath
   const { maintenance, target: computedTarget } = useMemo(
     () =>
       computeDailyTarget({
@@ -445,7 +359,6 @@ export default function Dashboard() {
     [profile, mode, goalWeightKg, targetDateISO, currentWeightKg]
   );
 
-  // Base calorie target: override → computed → maintenance → 0
   const rawTarget =
     dailyTargetOverride ??
     (computedTarget != null ? computedTarget : undefined) ??
@@ -453,7 +366,6 @@ export default function Dashboard() {
 
   const MIN_TARGET = 1000;
 
-  // Any finite value below MIN_TARGET gets clamped (and warning shown)
   const isBelowMin =
     Number.isFinite(rawTarget) && rawTarget < MIN_TARGET;
 
@@ -466,10 +378,6 @@ export default function Dashboard() {
   );
   const showMinWarning = isBelowMin;
 
-  /**
-   * Estimate days to reach goal based on current weight vs goalWeightKg
-   * using 7700 kcal per kg and current deficit/surplus.
-   */
   const isMaintain = mode === "maintain";
   const estimate = useMemo(() => {
     if (isMaintain || !goalWeightKg) {
@@ -516,9 +424,6 @@ export default function Dashboard() {
     latestLogged.iso,
   ]);
 
-  // ─────────────────────────── Tiles: strings & units ───────────────────────────
-
-  // Singular/plural based on *current* weight
   const kgUnit = isExactlyOne(currentWeightKg) ? "kg" : "kgs";
   const lbUnit = isExactlyOne(currentWeightKg) ? "lb" : "lbs";
 
@@ -548,31 +453,6 @@ export default function Dashboard() {
           : "Weight Change"
       : undefined;
 
-  // Use backend streak (already computed above)
-  // No need to recalculate on every render
-
-  // ─────────────────────────── Handlers ───────────────────────────
-  const handleResetAll = () => {
-    // Note: This is a testing function and should be removed in production
-    resetProfile?.();
-    resetGoal?.();
-    resetLogs?.();
-    resetSub?.();
-    setLoggedIn?.(false);
-    setOnboardingDone?.(false);
-    setToastMessage("All data has been reset");
-    setToastType("success");
-    setToastVisible(true);
-
-    setTimeout(() => {
-      nav.reset({
-        index: 0,
-        routes: [{ name: "Splash" }],
-      });
-    }, 1000);
-  };
-
-  // ─────────────────────────── Render ───────────────────────────
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
       <ScrollView
@@ -580,7 +460,6 @@ export default function Dashboard() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
         <View style={styles.header}>
           <Text
             style={[
@@ -592,7 +471,6 @@ export default function Dashboard() {
           </Text>
         </View>
 
-        {/* Streak */}
         <View
           style={[
             styles.card,
@@ -624,9 +502,7 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {/* Tiles */}
         <View style={styles.tilesWrap}>
-          {/* Target Calories */}
           <View
             style={[
               styles.card,
@@ -653,7 +529,6 @@ export default function Dashboard() {
             )}
           </View>
 
-          {/* Days to go (only when not maintain mode) */}
           {mode !== "maintain" && (
             <View
               style={[
@@ -695,7 +570,6 @@ export default function Dashboard() {
             </View>
           )}
 
-          {/* Starting Weight */}
           <View
             style={[
               styles.card,
@@ -715,7 +589,6 @@ export default function Dashboard() {
             </Text>
           </View>
 
-          {/* Delta vs start */}
           {lostOrGainedLabel && (
             <View
               style={[
@@ -745,7 +618,6 @@ export default function Dashboard() {
           )}
         </View>
 
-        {/* Current Weight + Chart */}
         <View
           style={[
             styles.card,
@@ -778,7 +650,6 @@ export default function Dashboard() {
               containerComponent={
                 <VictoryVoronoiContainer
                   voronoiDimension="x"
-                  // Only allow tooltips from scatter series
                   voronoiBlacklist={[
                     "seriesArea",
                     "seriesLine",
@@ -787,7 +658,6 @@ export default function Dashboard() {
                 />
               }
             >
-              {/* X Axis */}
               <VictoryAxis
                 tickValues={xTicks as any}
                 tickFormat={xTickFormat as any}
@@ -801,7 +671,6 @@ export default function Dashboard() {
                 }}
               />
 
-              {/* Y Axis */}
               <VictoryAxis
                 dependentAxis
                 style={{
@@ -814,7 +683,6 @@ export default function Dashboard() {
                 }}
               />
 
-              {/* Area fill */}
               <VictoryArea
                 name="seriesArea"
                 data={baseSeries}
@@ -823,7 +691,6 @@ export default function Dashboard() {
                 }}
               />
 
-              {/* Line */}
               <VictoryLine
                 name="seriesLine"
                 data={baseSeries}
@@ -833,7 +700,6 @@ export default function Dashboard() {
                 }}
               />
 
-              {/* Tooltip points */}
               <VictoryScatter
                 name="seriesPts"
                 data={baseSeries}
@@ -858,7 +724,7 @@ export default function Dashboard() {
                 }
               />
 
-              {/* Starting weight reference line */}
+
               {typeof startRefY === "number" && (
                 <VictoryLine
                   name="seriesRef"
@@ -876,7 +742,6 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {/* CTA buttons */}
         <View style={styles.ctaWrap}>
           <Button
             title="Add Log"
@@ -885,30 +750,12 @@ export default function Dashboard() {
             accentColor={ACCENT}
             style={styles.addBtn}
           />
-
-          {/* Uncomment for testing only */}
-          {/* <Pressable
-            onPress={handleResetAll}
-            style={({ pressed }) => [
-              {
-                backgroundColor: "#ef4444",
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                borderRadius: 8,
-                marginTop: 8,
-                transform: [{ translateY: pressed ? 1 : 0 }],
-              },
-            ]}
-          >
-            <Text style={{ color: "#fff", fontWeight: "600" }}>Reset all data (testing)</Text>
-          </Pressable> */}
         </View>
       </ScrollView>
 
-      {/* Toast Notification */}
       <Toast
-        message={toastMessage}
-        type={toastType}
+        message=""
+        type="success"
         visible={toastVisible}
         onDismiss={() => setToastVisible(false)}
       />
@@ -916,10 +763,13 @@ export default function Dashboard() {
   );
 }
 
-// ─────────────────────────── Styles ───────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { paddingBottom: 28 },
+  safe: {
+    flex: 1,
+  },
+  scroll: {
+    paddingBottom: 28,
+  },
 
   header: {
     paddingHorizontal: 20,
@@ -927,9 +777,14 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     alignItems: "center",
   },
-  title: { fontSize: 34, fontWeight: "800" },
-
-  full: { marginHorizontal: 20, marginBottom: 16 },
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+  },
+  full: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
 
   card: {
     borderRadius: 24,
@@ -941,16 +796,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
-
-  // Streak
-  streakRow: { flexDirection: "row", alignItems: "center" },
+  streakRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   flame: {
     width: 50,
     height: 50,
     marginRight: 6,
     resizeMode: "contain",
   },
-  streakValue: { fontSize: 24, fontWeight: "800" },
+  streakValue: {
+    fontSize: 24,
+    fontWeight: "800",
+  },
   streakLabel: {
     fontSize: 14,
     color: "#6b7280",
@@ -961,8 +820,6 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
     marginTop: 2,
   },
-
-  // Tiles
   tilesWrap: {
     paddingHorizontal: 20,
     marginBottom: 8,
@@ -976,8 +833,15 @@ const styles = StyleSheet.create({
     minHeight: 104,
     justifyContent: "center",
   },
-  tileLabel: { fontSize: 16, fontWeight: "600" },
-  tileValue: { fontSize: 28, fontWeight: "800", marginTop: 4 },
+  tileLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  tileValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    marginTop: 4,
+  },
   tileSub: {
     fontSize: 13,
     color: "#6b7280",
@@ -988,9 +852,10 @@ const styles = StyleSheet.create({
     color: "#ef4444",
     marginTop: 4,
   },
-
-  // Current section / chart
-  sectionTitle: { fontSize: 18, fontWeight: "700" },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
   currentValue: {
     fontSize: 36,
     fontWeight: "800",
@@ -1004,8 +869,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
   },
-
-  // CTA
   ctaWrap: {
     paddingHorizontal: 20,
     marginTop: 10,
@@ -1025,11 +888,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
     marginBottom: 10,
-  },
-  addBtnText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.3,
   },
 });

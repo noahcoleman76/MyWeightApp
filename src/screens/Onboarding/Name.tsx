@@ -1,4 +1,3 @@
-// Name.tsx
 import BackButton from "@/src/components/ui/BackButton";
 import Button from "@/src/components/ui/Button";
 import { useNavigation, useTheme } from "@react-navigation/native";
@@ -17,7 +16,7 @@ import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 import { useProfileStore } from "../../state/profileStore";
 
 export default function Name() {
-  useOnboardingTracker("Name"); // Track this screen
+  useOnboardingTracker("Name");
   
   const nav = useNavigation<any>();
   const { colors } = useTheme();
@@ -38,7 +37,6 @@ export default function Name() {
   const hasValue = trimmed.length > 0;
   const isValid = trimmed.length >= 2;
 
-  // Only show hint after first blur, if there IS a value, and it's invalid
   const showNameHint = hasBlurred && hasValue && !isValid;
 
   const submit = () => {
@@ -51,7 +49,6 @@ export default function Name() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
       <BackButton />
-      {/* Tap anywhere outside to dismiss keyboard */}
       <Pressable style={styles.dismissArea} onPress={() => Keyboard.dismiss()}>
         <View style={styles.container}>
           <Text style={[styles.title, { color: TEXT }]}>What should we call you?</Text>
@@ -105,7 +102,6 @@ export default function Name() {
             </Text>
           ) : null}
 
-          {/* Secondary helper text under the field */}
           <Text style={[styles.suffix, { color: PLACEHOLDER }]}>
             You can change this later in Account.
           </Text>

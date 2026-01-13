@@ -8,16 +8,14 @@ export function isOnboardingComplete(opts: {
 }) {
   const { profile, mode, goalWeightKg } = opts;
 
-  // Required profile fields gathered in your flow
   const hasGender = profile.gender === "male" || profile.gender === "female";
   const hasAge = Number.isFinite(profile.age) && profile.age > 0;
-  const hasHeight = Number.isFinite(profile.height) && profile.height > 0; // cm
+  const hasHeight = Number.isFinite(profile.height) && profile.height > 0;
   
   const hasStartOrCurrent =
     Number.isFinite(profile.startingWeightKg) && (profile.startingWeightKg as number) > 0
     || Number.isFinite(profile.currentWeightKg) && profile.currentWeightKg > 0;
 
-  // Goal: goalWeight is required for lose/gain; optional for maintain
   const goalOk =
     mode === "maintain" ? true : Number.isFinite(goalWeightKg) && (goalWeightKg as number) > 0;
 

@@ -1,17 +1,16 @@
-// src/screens/Account/Index.tsx
 import { SubscriptionService } from "@/src/lib/subscriptionService";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useTheme } from "@react-navigation/native";
 import React, { useState } from "react";
 import {
-    Alert,
-    Linking,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../../components/ui/Button";
@@ -36,37 +35,29 @@ export default function Account() {
   
   const [name, setNameLocal] = useState(profile.name);
   const [isRestoring, setIsRestoring] = useState(false);
-  
-  // Update local state when profile changes
-  React.useEffect(() => {
-    setNameLocal(profile.name);
-  }, [profile.name]);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   
-  // Track if there are unsaved changes
+  React.useEffect(() => {
+    setNameLocal(profile.name);
+  }, [profile.name]);
+  
   const hasUnsavedChanges = name.trim() !== profile.name;
 
   const save = async () => {
     try {
       const trimmedName = name.trim() || "You";
-      
-      // Update local stores
       setName(trimmedName);
       
-      // Update Firebase Auth displayName and sync to Firestore if user is logged in
       if (user?.uid) {
-        // Update Firebase Auth displayName
         await FirebaseAuthService.updateDisplayName(trimmedName);
-        
-        // Sync to Firestore
         await UserDataService.syncToFirestore(user.uid);
         setSaveSuccess(true);
       } else {
         setSaveSuccess(true);
       }
     } catch (error) {
-      console.error("Failed to save profile:", error);
+      console.error("❌ Failed to save profile:", error);
     }
   };
 
@@ -75,17 +66,13 @@ export default function Account() {
       "Sign Out",
       "Are you sure you want to sign out?",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Sign Out",
           style: "destructive",
           onPress: async () => {
             try {
               await signOut();
-              // Navigation will be handled by auth state change
             } catch {
               Alert.alert("Error", "Failed to sign out. Please try again.");
             }
@@ -100,40 +87,29 @@ export default function Account() {
       "Delete Account",
       "Are you sure you want to permanently delete your account? This action cannot be undone and will remove all your data.",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete Account",
           style: "destructive",
           onPress: () => {
-            // Second confirmation dialog
             Alert.alert(
               "Final Confirmation",
               "This will permanently delete your account and all associated data. Are you absolutely sure?",
               [
-                {
-                  text: "Cancel",
-                  style: "cancel",
-                },
+                { text: "Cancel", style: "cancel" },
                 {
                   text: "Yes, Delete Forever",
                   style: "destructive",
                   onPress: async () => {
                     try {
-                      // Delete user data from Firestore first
                       if (user?.uid) {
                         await UserDataService.deleteAllUserData(user.uid);
                       }
-                      
-                      // Then delete the Firebase Auth account
                       await deleteAccount();
-                      // Navigation will be handled by auth state change
                     } catch (error) {
-                      console.error("Failed to delete account:", error);
+                      console.error("❌ Failed to delete account:", error);
                       Alert.alert(
-                        "Error", 
+                        "Error",
                         "Failed to delete account. You might need to re-authenticate and try again."
                       );
                     }
@@ -147,16 +123,11 @@ export default function Account() {
     );
   };
 
-  /**
-   * Open system subscription management
-   * iOS: Opens Apple ID subscriptions in Settings
-   * Android: Opens Google Play subscriptions
-   */
   const handleManageSubscription = async () => {
     try {
       await SubscriptionService.openSubscriptionManagement();
     } catch (error) {
-      console.error("Error opening subscription management:", error);
+      console.error("❌ Error opening subscription management:", error);
       Alert.alert(
         "Unable to Open Settings",
         "Please manage your subscription through:\n\niOS: Settings > Apple ID > Subscriptions\nAndroid: Play Store > Menu > Subscriptions"
@@ -164,10 +135,6 @@ export default function Account() {
     }
   };
 
-  /**
-   * Restore previous purchases
-   * This should NOT charge the user
-   */
   const handleRestorePurchase = async () => {
     if (isRestoring) return;
 
@@ -192,7 +159,7 @@ export default function Account() {
         );
       }
     } catch (error) {
-      console.error("Error restoring purchases:", error);
+      console.error("❌ Error restoring purchases:", error);
       Alert.alert(
         "Restore Failed",
         "There was an issue restoring your purchases. Please try again."
@@ -212,7 +179,6 @@ export default function Account() {
       />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={s.header}>
           <Text style={[s.title, { color: TEXT }]}>Account</Text>
           <Text style={[s.subtitle, { color: TEXT }]}>
@@ -220,11 +186,9 @@ export default function Account() {
           </Text>
         </View>
 
-        {/* User Info Header */}
         {user && (
           <View style={s.userHeader}>
             <View style={[s.userHeaderCard, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
-              {/* Edit Icon */}
               <TouchableOpacity 
                 style={s.editIcon}
                 onPress={() => setIsEditMode(!isEditMode)}
@@ -250,9 +214,6 @@ export default function Account() {
                 {user.email}
               </Text>
               
-
-              
-              {/* Collapsible Edit Section */}
               {isEditMode && (
                 <View style={[s.editSection, { borderTopColor: BORDER }]}>
                   <Text style={[s.editSectionTitle, { color: TEXT }]}>Update Display Name</Text>
@@ -287,12 +248,10 @@ export default function Account() {
           </View>
         )}
 
-        {/* Subscription Section */}
         <View style={s.full}>
           <View style={[s.card, { borderColor: BORDER, backgroundColor: CARD_BG }]}>
             <Text style={[s.sectionTitle, { color: TEXT }]}>Subscription</Text>
 
-            {/* Subscription Status */}
             <View style={[s.subscriptionStatus, { backgroundColor: isEntitled ? "#f0fdf4" : "#fef2f2", borderColor: isEntitled ? "#86efac" : "#fecaca" }]}>
               <View style={s.statusHeader}>
                 <MaterialIcons 
@@ -320,7 +279,6 @@ export default function Account() {
             </View>
 
             <View style={s.linkGroup}>
-              {/* Manage Subscription */}
               {isEntitled && (
                 <TouchableOpacity
                   style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
@@ -339,7 +297,6 @@ export default function Account() {
                 </TouchableOpacity>
               )}
 
-              {/* Restore Purchase */}
               <Button
                 title={isRestoring ? "Restoring..." : "Restore Purchase"}
                 onPress={handleRestorePurchase}
@@ -350,7 +307,6 @@ export default function Account() {
               />
             </View>
 
-            {/* Info Text */}
             <View style={s.infoBox}>
               <Text style={[s.infoText, { color: "#6b7280" }]}>
                 {isEntitled 
@@ -361,13 +317,11 @@ export default function Account() {
           </View>
         </View>
 
-        {/* Help & Legal Section */}
         <View style={s.full}>
           <View style={[s.card, { borderColor: BORDER, backgroundColor: CARD_BG }]}>
             <Text style={[s.sectionTitle, { color: TEXT }]}>Help &amp; Support</Text>
 
             <View style={s.linkGroup}>
-              {/* Contact Support */}
               <TouchableOpacity
                 style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
                 onPress={() =>
@@ -382,7 +336,6 @@ export default function Account() {
                 </View>
               </TouchableOpacity>
 
-              {/* Privacy Policy */}
               <TouchableOpacity
                 style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
                 onPress={() => navigation.navigate("PrivacyPolicy" as never)}
@@ -393,7 +346,6 @@ export default function Account() {
                 </View>
               </TouchableOpacity>
 
-              {/* Terms of Use */}
               <TouchableOpacity
                 style={[s.linkButton, { borderColor: BORDER, backgroundColor: colors?.background ?? "#f9fafb" }]}
                 onPress={() => navigation.navigate("TermsOfUse" as never)}
@@ -407,7 +359,6 @@ export default function Account() {
           </View>
         </View>
 
-        {/* Account Management Section */}
         <View style={s.full}>
           <View style={[s.card, { borderColor: BORDER, backgroundColor: CARD_BG }]}>
             <Text style={[s.sectionTitle, { color: TEXT }]}>Account Management</Text>
@@ -438,30 +389,38 @@ export default function Account() {
   );
 }
 
-/* ---------- Styles ---------- */
-
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f3f4f6" },
-  scroll: { paddingBottom: 28 },
+  safe: {
+    flex: 1,
+    backgroundColor: "#f3f4f6",
+  },
+  scroll: {
+    paddingBottom: 28,
+  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
     alignItems: "flex-start",
   },
-  title: { fontSize: 34, fontWeight: "800" },
-  subtitle: { 
-    fontSize: 16, 
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+  },
+  subtitle: {
+    fontSize: 16,
     marginTop: 4,
-    fontWeight: "400" 
+    fontWeight: "400",
   },
-  sectionTitle: { 
-    fontSize: 18, 
-    fontWeight: "700", 
-    marginBottom: 16 
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
   },
-
-  full: { marginHorizontal: 20, marginBottom: 16 },
+  full: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
   card: {
     borderRadius: 24,
     borderWidth: 1,
@@ -472,10 +431,9 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
-
-  label: { fontSize: 14, color: "#6b7280", fontWeight: "600" },
-  inputGroup: { marginBottom: 20 },
-  linkGroup: { gap: 12 },
+  linkGroup: {
+    gap: 12,
+  },
   linkButton: {
     borderWidth: 1,
     borderRadius: 16,
@@ -483,48 +441,20 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: "flex-start",
   },
-  linkText: { 
-    fontSize: 16, 
-    fontWeight: "600" 
+  linkText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   linkContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-
-
-  chipsRow: { flexDirection: "row", gap: 10, marginTop: 8 },
-  chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
-
-  tilesWrap: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+  linkSubtext: {
+    fontSize: 13,
+    marginTop: 2,
+    fontWeight: "400",
   },
-
-  input: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-
-  errText: {
-    marginTop: 6,
-    color: "#ef4444",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  
-  // New user header styles
   userHeader: {
     paddingHorizontal: 20,
     marginBottom: 24,
@@ -573,8 +503,6 @@ const s = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
   },
-  
-  // Collapsible edit section styles
   editSection: {
     width: "100%",
     borderTopWidth: 1,
@@ -605,8 +533,6 @@ const s = StyleSheet.create({
   updateButton: {
     minWidth: 120,
   },
-  
-  // Edit icon styles
   editIcon: {
     position: "absolute",
     top: 16,
@@ -624,8 +550,6 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  
-  // Subscription section styles
   subscriptionStatus: {
     borderRadius: 16,
     borderWidth: 2,
@@ -650,11 +574,6 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
-  linkSubtext: {
-    fontSize: 13,
-    marginTop: 2,
-    fontWeight: "400",
-  },
   infoBox: {
     backgroundColor: "#f9fafb",
     borderRadius: 12,
@@ -667,9 +586,3 @@ const s = StyleSheet.create({
     fontWeight: "400",
   },
 });
-
-
-
-
-
-

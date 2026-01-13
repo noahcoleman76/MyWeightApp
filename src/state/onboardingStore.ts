@@ -19,21 +19,16 @@ export type OnboardingScreen =
   | "Encouragement";
 
 type OnboardingState = {
-  // Current onboarding screen
   currentScreen: OnboardingScreen | null;
   
-  // Flag to indicate if onboarding data has been uploaded to Firestore
   isUploadedToFirestore: boolean;
   
-  // Flag to indicate if we should resume onboarding or start fresh
   shouldResumeOnboarding: boolean;
   
-  // Actions
   setCurrentScreen: (screen: OnboardingScreen | null) => void;
   setUploadedToFirestore: (uploaded: boolean) => void;
   setShouldResumeOnboarding: (should: boolean) => void;
   
-  // Utility actions
   startOnboarding: () => void;
   completeOnboarding: () => void;
   resetOnboarding: () => void;
@@ -42,12 +37,10 @@ type OnboardingState = {
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
-      // Initial state
       currentScreen: null,
       isUploadedToFirestore: false,
       shouldResumeOnboarding: false,
       
-      // Actions
       setCurrentScreen: (screen) => set({ 
         currentScreen: screen,
         shouldResumeOnboarding: screen !== null 
@@ -61,7 +54,6 @@ export const useOnboardingStore = create<OnboardingState>()(
         shouldResumeOnboarding: should 
       }),
       
-      // Utility actions
       startOnboarding: () => set({ 
         currentScreen: "Name",
         shouldResumeOnboarding: true,

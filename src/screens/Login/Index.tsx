@@ -20,13 +20,11 @@ export default function Login() {
   const [showToast, setShowToast] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
 
-  // Clear errors when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       clearLoginError();
       setShowToast(false);
       return () => {
-        // Cleanup when leaving screen
         clearLoginError();
       };
     }, [clearLoginError])
@@ -43,30 +41,21 @@ export default function Login() {
   };
 
   const onLogin = async () => {
-    console.log('🔑 Login button pressed');
-    // Clear previous errors
     clearLoginError();
     setShowToast(false);
 
-    // Validate inputs
     if (!validateInputs()) {
       console.log('❌ Validation failed');
       return;
     }
 
-    console.log('✅ Validation passed, attempting sign in...');
     try {
       await signIn(email, password);
-      console.log('✅ signIn completed successfully');
-      // Clear form on success
       setEmail("");
       setPassword("");
       setEmailError(null);
       setPasswordError(null);
-      console.log('📝 Form cleared, waiting for navigation...');
-      // Navigation will be handled by the auth state change
     } catch (error) {
-      // Show toast for auth errors
       setShowToast(true);
       console.log("❌ Login error:", error);
     }
@@ -87,7 +76,6 @@ export default function Login() {
   const BG = colors?.background ?? "#ffffff";
   const BORDER = colors?.border ?? "#d1d5db";
   const ACCENT = colors?.primary ?? "#5eada8";
-  // Secondary text should be more visible than borders
   const SECONDARY_TEXT = colors?.text ? `${colors.text}99` : "#6b7280";
 
   return (
@@ -98,13 +86,11 @@ export default function Login() {
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
-      {/* Title */}
       <Text style={[styles.title, { color: TEXT }]}>Log In</Text>
       <Text style={[styles.subtitle, { color: SECONDARY_TEXT }]}>
         Welcome back. Let&apos;s get you logged in.
       </Text>
 
-      {/* Toast for auth errors */}
       <Toast
         message={loginError?.message || ""}
         type="error"
@@ -112,7 +98,6 @@ export default function Login() {
         onDismiss={() => setShowToast(false)}
       />
 
-      {/* Inputs */}
       <View style={styles.inputContainer}>
         <AuthInput
           label="Email Address"
@@ -151,7 +136,6 @@ export default function Login() {
         />
       </View>
 
-      {/* Primary button */}
       <Button
         title="Sign In"
         onPress={onLogin}
@@ -163,14 +147,12 @@ export default function Login() {
 
       {Platform.OS === "ios" && (
         <>
-          {/* OR divider */}
           <View style={styles.dividerContainer}>
             <View style={[styles.dividerLine, { backgroundColor: BORDER }]} />
             <Text style={[styles.dividerText, { color: SECONDARY_TEXT }]}>or</Text>
             <View style={[styles.dividerLine, { backgroundColor: BORDER }]} />
           </View>
 
-          {/* Apple sign in (iOS only) */}
           {appleLoading ? (
             <View style={styles.appleButtonLoading}>
               <ActivityIndicator color="#ffffff" />
@@ -188,7 +170,6 @@ export default function Login() {
       )
       }
 
-      {/* Don't have an account */}
       <View style={styles.createAccountContainer}>
         <Text style={[styles.createAccountText, { color: SECONDARY_TEXT }]}>
           Don&apos;t have an account?{" "}
@@ -225,30 +206,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginTop: 32,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#f9fafb',
-    marginBottom: 16,
-  },
   loginButton: {
     marginTop: 32,
     backgroundColor: '#5eada8',
     paddingVertical: 12,
     borderRadius: 16,
     alignItems: 'center',
-  },
-  loginButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 18,
-  },
-  loginButtonDisabled: {
-    opacity: 0.7,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -277,18 +240,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 24,
   },
-  appleButtonFallback: {
-    width: '100%',
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-  },
-  appleButtonText: {
-    fontWeight: '600',
-    fontSize: 16,
-  },
   createAccountContainer: {
     marginTop: 8,
     paddingVertical: 8,
@@ -296,9 +247,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flexDirection: 'row',
     justifyContent: 'center',
-  },
-  createAccountPressed: {
-    opacity: 0.7,
   },
   createAccountText: {
     fontSize: 16,

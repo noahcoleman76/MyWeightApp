@@ -16,7 +16,6 @@ type Props = {
 export default function Button({ title, onPress, variant = "primary", loading, disabled, style, accentColor }: Props) {
   const { colors } = useTheme();
   
-  // Use theme colors with fallbacks, supporting accentColor override
   const ACCENT = accentColor ?? colors?.primary ?? "#5eada8";
   const TEXT = colors?.text ?? "#111827";
   const CARD_BG = colors?.card ?? "#FFFFFF";
@@ -24,16 +23,13 @@ export default function Button({ title, onPress, variant = "primary", loading, d
 
   const handlePress = () => {
     if (!disabled && !loading && onPress) {
-      // Add haptic feedback like other interactive elements
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       onPress();
     }
   };
-  // Dynamic styles based on theme colors
   const getButtonStyle = (): ViewStyle[] => {
     const baseStyles: ViewStyle[] = [styles.base];
     
-    // Add variant-specific styles
     switch (variant) {
       case 'primary':
         baseStyles.push({ backgroundColor: ACCENT } as ViewStyle);
@@ -54,12 +50,10 @@ export default function Button({ title, onPress, variant = "primary", loading, d
         break;
     }
     
-    // Add disabled state
     if (disabled || loading) {
       baseStyles.push(styles.disabled);
     }
     
-    // Add custom style if provided
     if (style) {
       baseStyles.push(style);
     }

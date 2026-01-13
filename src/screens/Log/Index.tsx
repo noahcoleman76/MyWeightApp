@@ -22,9 +22,9 @@ import Button from "../../components/ui/Button";
 import EmptyState from "../../components/ui/EmptyState";
 import { Toast } from "../../components/ui/Toast";
 import { kgToLb, lbToKg } from "../../lib/calorieMath";
+import { useAuthStore } from "../../state/authStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
-import { useAuthStore } from "../../state/authStore";
 
 dayjs.extend(advancedFormat);
 
@@ -42,58 +42,42 @@ export default function Log() {
   const { colors } = useTheme();
   const todayISO = dayjs().format("YYYY-MM-DD");
 
-  // Quick add draft
   const [qa, setQa] = useState<Draft>({
     dateISO: todayISO,
     calories: "",
     weight: "",
     notes: "",
   });
-
-  // Edit draft
   const [edit, setEdit] = useState<Draft | null>(null);
-
-  // Date picker shared state (quick-add, edit, jump-to-date)
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerContext, setDatePickerContext] = useState<DatePickerContext>(null);
   const [tempDate, setTempDate] = useState<Date | null>(null);
-
-  // Filters
   const [filter, setFilter] = useState<FilterMode>("all");
-
-  // Toggle for "Add New Log" card
   const [showAddCard, setShowAddCard] = useState(false);
-
-  // Pull-to-refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Firebase sync effect - sync when user is available
   const hasSyncedRef = useRef(false);
   
   useEffect(() => {
     if (user?.uid && !hasSyncedRef.current) {
       hasSyncedRef.current = true;
-      console.log('🔄 Initial sync with Firebase for user:', user.uid);
       
       syncWithFirebase(user.uid).catch(error => {
         console.error('❌ Failed to sync logs from Firebase:', error);
         showToast('Failed to load your log data', 'error');
-        hasSyncedRef.current = false; // Allow retry on error
+        hasSyncedRef.current = false;
       });
     }
   }, [user?.uid, syncWithFirebase]);
 
-  // Toast state
   const [toast, setToast] = useState<{
     visible: boolean;
     message: string;
     type: 'error' | 'success' | 'info';
   }>({ visible: false, message: '', type: 'info' });
 
-  // List ref for "jump to date"
   const listRef = useRef<FlatList<any>>(null);
 
-  // Theme tokens with proper fallbacks
   const ACCENT = colors?.primary ?? "#5eada8";
   const TEXT = colors?.text ?? "#0f172a";
   const BG = colors?.background ?? "#f7f7f7";
@@ -102,7 +86,6 @@ export default function Log() {
   const MUTED = colors?.text ? `${colors.text}99` : "#6b7280";
   const PLACEHOLDER = colors?.text ? `${colors.text}66` : "#9ca3af";
 
-  // Toast helper
   const showToast = (message: string, type: 'error' | 'success' | 'info' = 'error') => {
     setToast({ visible: true, message, type });
   };
@@ -111,13 +94,11 @@ export default function Log() {
     setToast(prev => ({ ...prev, visible: false }));
   };
 
-  // Pull-to-refresh handler
   const handleRefresh = async () => {
     if (!user?.uid) return;
     
     setIsRefreshing(true);
     try {
-      console.log('🔄 Manual refresh triggered by user');
       await syncWithFirebase(user.uid);
       showToast('Logs synced successfully!', 'success');
     } catch (error) {
@@ -127,8 +108,6 @@ export default function Log() {
       setIsRefreshing(false);
     }
   };
-
-  // ---- Formatting helpers ----
 
   const prettyDate = (iso: string) => dayjs(iso).format("MMM Do, YYYY");
 
@@ -179,8 +158,6 @@ export default function Log() {
     return weightKg;
   };
 
-  // ---- Annotated log list (year headers, relative labels, trend arrows) ----
-
   type LogWithMeta = typeof logs[number] & {
     yearLabel?: string | null;
     relative?: string | undefined;
@@ -221,8 +198,6 @@ export default function Log() {
     });
   }, [annotated, filter]);
 
-  // ---- Quick add & edit save helpers ----
-
   const resetQuickAdd = () => {
     setQa({
       dateISO: todayISO,
@@ -242,13 +217,11 @@ export default function Log() {
     const weightTrim = qa.weight.trim();
     const notesTrim = qa.notes?.trim() ?? "";
 
-    // Require either weight or calories
     if (!caloriesTrim && !weightTrim) {
       showToast("Please enter either weight or calories", 'error');
       return;
     }
 
-    // Validate calories if provided
     const calories = Number(caloriesTrim);
     if (caloriesTrim && (Number.isNaN(calories) || calories < 0 || calories > 10000)) {
       showToast("Please enter calories between 0 and 10,000", 'error');
@@ -256,7 +229,7 @@ export default function Log() {
     }
 
     const weightKgResult = parseWeightToKg(qa.weight);
-    if (weightKgResult === null) return; // parseWeightToKg already shows toast
+    if (weightKgResult === null) return;
 
     add({
       dateISO: qa.dateISO,
@@ -267,7 +240,7 @@ export default function Log() {
 
     showToast("Log entry saved successfully!", 'success');
     resetQuickAdd();
-    setShowAddCard(false); // auto-hide after successful save
+    setShowAddCard(false);
   };
 
   const saveEdit = () => {
@@ -281,13 +254,11 @@ export default function Log() {
     const weightTrim = edit.weight.trim();
     const notesTrim = edit.notes?.trim() ?? "";
 
-    // Require either weight or calories
     if (!caloriesTrim && !weightTrim) {
       showToast("Please enter either weight or calories", 'error');
       return;
     }
 
-    // Validate calories if provided
     const calories = Number(caloriesTrim);
     if (caloriesTrim && (Number.isNaN(calories) || calories < 0 || calories > 10000)) {
       showToast("Please enter calories between 0 and 10,000", 'error');
@@ -295,7 +266,7 @@ export default function Log() {
     }
 
     const weightKgResult = parseWeightToKg(edit.weight);
-    if (weightKgResult === null) return; // parseWeightToKg already shows toast
+    if (weightKgResult === null) return;
 
     update(edit.id!, {
       dateISO: edit.dateISO,
@@ -307,8 +278,6 @@ export default function Log() {
     showToast("Log entry updated successfully!", 'success');
     setEdit(null);
   };
-
-  // ---- Date picker helpers ----
 
   const openDatePicker = (ctx: DatePickerContext) => {
     Keyboard.dismiss();
@@ -337,7 +306,6 @@ export default function Log() {
       return;
     }
     const iso = dayjs(dateToUse).format("YYYY-MM-DD");
-    console.log('📅 Date selected:', iso, 'Context:', datePickerContext);
 
     if (datePickerContext === "jump") {
       const index = filtered.findIndex((e) => e.dateISO === iso);
@@ -348,17 +316,13 @@ export default function Log() {
         showToast("No log entry found on that date", 'error');
       }
     } else if (datePickerContext === "quick") {
-      console.log('📝 Updating quick add date to:', iso);
       setQa((prev) => ({ ...prev, dateISO: iso }));
     } else if (datePickerContext === "edit") {
-      console.log('✏️ Updating edit date to:', iso);
       setEdit((prev) => (prev ? { ...prev, dateISO: iso } : prev));
     }
 
     closeDatePicker();
   };
-
-
 
   const handleDelete = (id: string) => {
     Alert.alert(
@@ -385,7 +349,6 @@ export default function Log() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
-      {/* Native Date Picker (no custom modal wrapper) */}
       {showDatePicker && (
         <DateTimePicker
           mode="date"
@@ -397,20 +360,17 @@ export default function Log() {
           }) as any}
           onChange={(event, date) => {
             if (Platform.OS === 'android') {
-              // Android: picker automatically closes after selection
               if (event.type === 'set' && date) {
                 setTempDate(date);
-                applyPickedDate(date); // Pass the date directly
+                applyPickedDate(date);
               } else {
                 closeDatePicker();
               }
             } else {
-              // iOS: allow continuous date changes
               if (date) {
                 setTempDate(date);
-                // Auto-apply on iOS since there's no explicit "Done" button
                 setTimeout(() => {
-                  applyPickedDate(date); // Pass the date directly
+                  applyPickedDate(date);
                 }, 100);
               }
             }
@@ -434,7 +394,6 @@ export default function Log() {
         }
         ListHeaderComponent={
           <View>
-            {/* Add New Log toggle button (PRIMARY COLOR) */}
             <View style={[styles.full, { marginTop: 16 }]}>
               <Button
                 title={showAddCard ? "Hide New Log" : "Add New Log +"}
@@ -447,13 +406,11 @@ export default function Log() {
               />
             </View>
 
-            {/* Add New Log Card (expandable) */}
             {showAddCard && (
               <View style={[styles.full, { marginTop: 8 }]}>
                 <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
                   <Text style={[styles.cardTitle, { color: TEXT }]}>New Log</Text>
 
-                  {/* Date */}
                   <Text style={[styles.label, { color: MUTED }]}>Date</Text>
                   <Pressable
                     onPress={() => openDatePicker("quick")}
@@ -464,7 +421,6 @@ export default function Log() {
                     </Text>
                   </Pressable>
 
-                  {/* Weight */}
                   <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>
                     Weight ({profile.weightUnit === "kg" ? "kg" : "lbs"})
                   </Text>
@@ -478,7 +434,6 @@ export default function Log() {
                     style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
-                  {/* Calories */}
                   <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Calories</Text>
                   <TextInput
                     value={qa.calories}
@@ -490,7 +445,6 @@ export default function Log() {
                     style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
-                  {/* Notes */}
                   <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Notes — optional</Text>
                   <TextInput
                     value={qa.notes}
@@ -509,7 +463,6 @@ export default function Log() {
                       style={{ ...styles.addBtn, width: "100%" }}
                     />
 
-                    {/* Cancel under save to collapse form */}
                     <Pressable
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -524,7 +477,6 @@ export default function Log() {
               </View>
             )}
 
-            {/* History header + filters + jump */}
             <View style={[styles.full, { marginTop: 16, marginBottom: 4 }]}>
               <View style={styles.rowSpace}>
                 <Text style={[styles.sectionTitle, { color: TEXT }]}>History</Text>
@@ -536,7 +488,6 @@ export default function Log() {
                 </Pressable>
               </View>
 
-              {/* Filters */}
               <View style={styles.filterRow}>
                 {(["all", "weight", "calories"] as FilterMode[]).map((mode) => {
                   const active = filter === mode;
@@ -567,7 +518,6 @@ export default function Log() {
               </View>
             </View>
 
-            {/* Empty state */}
             {filtered.length === 0 && (
               <View style={[styles.full, { marginTop: 6 }]}>
                 <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
@@ -593,7 +543,6 @@ export default function Log() {
                 <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: BORDER }]}>
                   <Text style={[styles.editTitle, { color: TEXT }]}>Edit entry</Text>
 
-                  {/* Date */}
                   <Text style={[styles.label, { color: MUTED }]}>Date</Text>
                   <Pressable
                     onPress={() => openDatePicker("edit")}
@@ -604,7 +553,6 @@ export default function Log() {
                     </Text>
                   </Pressable>
 
-                  {/* Weight */}
                   <Text style={[styles.label, { marginTop: 12 }]}>
                     Weight ({profile.weightUnit === "kg" ? "kg" : "lbs"})
                   </Text>
@@ -618,7 +566,6 @@ export default function Log() {
                     style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
-                  {/* Calories */}
                   <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Calories</Text>
                   <TextInput
                     value={edit.calories}
@@ -630,7 +577,6 @@ export default function Log() {
                     style={[styles.input, { backgroundColor: CARD_BG, borderColor: BORDER, color: TEXT }]}
                   />
 
-                  {/* Notes */}
                   <Text style={[styles.label, { marginTop: 12, color: MUTED }]}>Notes — optional</Text>
                   <TextInput
                     value={edit.notes ?? ""}
@@ -659,12 +605,8 @@ export default function Log() {
             );
           }
 
-          // History card layout:
-          // - If both weight + calories: weight (with trend) LEFT, calories RIGHT.
-          // - If only one: show it on LEFT (no right side).
           const hasAnyMeta = hasWeight || hasCalories;
 
-          // Left block
           let leftContent: React.ReactNode = null;
           if (hasWeight) {
             leftContent = (
@@ -691,7 +633,6 @@ export default function Log() {
             );
           }
 
-          // Right block only if both exist
           const rightContent =
             hasWeight && hasCalories ? (
               <Text style={[styles.rowText, { color: TEXT }]}>
@@ -701,7 +642,6 @@ export default function Log() {
 
           return (
             <View style={[styles.full, { marginBottom: 10 }]}>
-              {/* Year header */}
               {item.yearLabel && <Text style={[styles.yearHeader, { color: MUTED }]}>{item.yearLabel}</Text>}
 
               <Pressable
@@ -743,7 +683,6 @@ export default function Log() {
                   </Pressable>
                 </View>
 
-                {/* Weight / Calories row (only if there is data) */}
                 {hasAnyMeta && (
                   <View style={styles.metaRow}>
                     {leftContent}
@@ -751,12 +690,10 @@ export default function Log() {
                   </View>
                 )}
 
-                {/* Notes */}
                 {item.notes ? (
                   <Text style={[styles.notesText, { color: MUTED }]}>{item.notes}</Text>
                 ) : null}
 
-                {/* Tap to edit centered */}
                 <View style={styles.rowEdit}>
                   <Ionicons name="pencil" size={14} color={MUTED} />
                   <Text style={[styles.rowHint, { color: MUTED }]}>Tap to edit</Text>
@@ -768,7 +705,6 @@ export default function Log() {
         contentContainerStyle={{ paddingBottom: 28 }}
       />
       
-      {/* Toast notifications */}
       <Toast
         visible={toast.visible}
         message={toast.message}
@@ -779,13 +715,17 @@ export default function Log() {
   );
 }
 
-/* ---------------- styles ---------------- */
-
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-
-  full: { marginHorizontal: 20 },
-  sectionTitle: { fontSize: 20, fontWeight: "800" },
+  safe: {
+    flex: 1,
+  },
+  full: {
+    marginHorizontal: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
 
   card: {
     borderRadius: 24,
@@ -804,21 +744,37 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
-
   yearHeader: {
     marginTop: 16,
     marginBottom: 2,
     fontSize: 14,
     fontWeight: "700",
   },
-
-  cardTitle: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
-  editTitle: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
-
-  label: { fontSize: 13, fontWeight: "600", marginTop: 4 },
-
-  row: { flexDirection: "row", alignItems: "center", marginTop: 6 },
-  rowSpace: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  editTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  rowSpace: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
 
   input: {
     marginTop: 6,
@@ -841,21 +797,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  smallBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-
+  smallBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   editActions: {
     marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  link: { fontSize: 16, fontWeight: "700" },
-  mutedLink: { fontSize: 16, fontWeight: "600" },
-
-  rowDate: { fontSize: 16, fontWeight: "700" },
-  rowSub: { fontSize: 12, marginTop: 2 },
-  rowText: { marginTop: 6, fontSize: 15 },
-  rowStrong: { fontWeight: "800" },
+  link: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  mutedLink: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  rowDate: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  rowSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  rowText: {
+    marginTop: 6,
+    fontSize: 15,
+  },
+  rowStrong: {
+    fontWeight: "800",
+  },
 
   metaRow: {
     marginTop: 6,
@@ -863,24 +838,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   trend: {
     marginTop: 6,
     marginLeft: 4,
     fontSize: 14,
   },
-
   notesText: {
     marginTop: 8,
     fontSize: 13,
   },
-
   rowHint: {
     marginTop: 0,
     fontSize: 12,
     textAlign: "center",
   },
-
   rowEdit: {
     marginTop: 10,
     flexDirection: "row",
@@ -888,16 +859,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
-
-  delete: { color: "#ef4444", fontSize: 14, fontWeight: "700" },
-
-  // Button overrides for custom sizing
+  delete: {
+    color: "#ef4444",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   addToggleBtn: {
     borderRadius: 999,
     minWidth: 160,
   },
-
-  // Save button on quick add
   addBtn: {
     borderRadius: 24,
     paddingVertical: 16,
@@ -907,7 +877,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
   },
-
   filterRow: {
     flexDirection: "row",
     gap: 8,
@@ -923,7 +892,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-
   jumpRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -934,5 +902,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
-

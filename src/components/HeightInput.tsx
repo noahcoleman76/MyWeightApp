@@ -16,13 +16,12 @@ import BackButton from "./ui/BackButton";
 type Props = {
   title: string;
   suffix?: string;
-  /** Returns total height in inches (e.g., 6'4" -> 76) */
   onConfirm: (totalInches: number) => void;
   cta?: string;
   accentColor?: string;
   showHelperText?: boolean;
-  minFeet?: number; // defaults 1
-  maxFeet?: number; // defaults 8
+  minFeet?: number;
+  maxFeet?: number;
 };
 
 export default function HeightInput({
@@ -69,14 +68,12 @@ export default function HeightInput({
   }, [inchesStr]);
 
   const feetValid = !Number.isNaN(feet) && feet >= minFeet && feet <= maxFeet;
-  const inchesValid = !Number.isNaN(inches) && inches >= 0 && inches < 12; // Allow 0-11 inches
+  const inchesValid = !Number.isNaN(inches) && inches >= 0 && inches < 12;
 
   const bothProvided = feetStr !== "" && inchesStr !== "";
   const isValid = bothProvided && feetValid && inchesValid;
 
   const totalInches = isValid ? feet * 12 + inches : NaN;
-
-  console.log('📐 HeightInput state:', { feetStr, inchesStr, feet, inches, totalInches, isValid });
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -85,9 +82,7 @@ export default function HeightInput({
         <View style={styles.container}>
           <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 
-          {/* Inputs row */}
           <View style={styles.row}>
-            {/* Feet */}
             <View
               style={[
                 styles.inputCard,
@@ -124,7 +119,6 @@ export default function HeightInput({
 
             <Text style={[styles.mult, { color: PLACEHOLDER }]}>ft</Text>
 
-            {/* Inches */}
             <View
               style={[
                 styles.inputCard,
@@ -166,7 +160,6 @@ export default function HeightInput({
             <Text style={[styles.suffix, { color: PLACEHOLDER }]}>{suffix}</Text>
           ) : null}
 
-          {/* Helper / validation – only after both provided */}
           {showHelperText && bothProvided && (!feetValid || !inchesValid) ? (
             <Text style={[styles.helper, { color: "#ef4444" }]}>
               {!feetValid && !inchesValid
@@ -177,7 +170,6 @@ export default function HeightInput({
             </Text>
           ) : null}
 
-          {/* CTA */}
           <Pressable
             disabled={!isValid}
             onPress={() => {

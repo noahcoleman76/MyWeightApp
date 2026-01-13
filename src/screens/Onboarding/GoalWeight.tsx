@@ -13,11 +13,10 @@ export default function GoalWeight() {
   const startingWeightKg = useProfileStore((s) => s.profile.startingWeightKg);
   const nav = useNavigation<any>();
 
-  // Convert starting weight from kg to lbs for comparison
   const startingWeightLb = startingWeightKg ? startingWeightKg / 0.45359237 : null;
 
   const validateGoalWeight = useCallback((goalWeightLb: number): string | null => {
-    if (!startingWeightLb) return null; // Can't validate without starting weight
+    if (!startingWeightLb) return null;
 
     const roundedStart = Math.round(startingWeightLb * 10) / 10;
 

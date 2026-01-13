@@ -1,5 +1,5 @@
 import { SubscriptionService } from "@/src/lib/subscriptionService";
-import { useNavigation, useTheme } from "@react-navigation/native";
+import { useTheme } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useState } from "react";
 import {
@@ -14,71 +14,33 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RootStackParamList } from "../../navigation/RootNavigator";
-import { useAppStore } from "../../state/appStore";
-import { useGoalStore } from "../../state/goalStore";
-import { useLogStore } from "../../state/logStore";
-import { useProfileStore } from "../../state/profileStore";
 import { useSubscriptionStore } from "../../state/subscriptionStore";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Paywall">;
 
 export default function Paywall({ navigation }: Props) {
-  const nav = useNavigation<any>();
   const { colors } = useTheme();
 
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
-  const MUTED = colors?.border ?? "#e5e7eb";
   const PLACEHOLDER = "#9ca3af";
   const LINK_BLUE = "#2563eb";
 
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
-  const revoke = useSubscriptionStore((s) => s.revokeEntitlement);
-  const isEntitled = useSubscriptionStore((s) => s.isEntitled);
-
   const goIn = () => navigation.replace("Tabs");
-  const setLoggedIn = useAppStore((s) => s.setLoggedIn);
-  const setOnboardingDone = useAppStore((s) => s.setOnboardingDone);
-
-  const resetProfile = useProfileStore((s) => s.reset);
-  const resetGoal = useGoalStore((s) => s.reset);
-  const resetLogs = useLogStore((s) => s.reset);
-  const resetSub = useSubscriptionStore((s) => s.reset);
-
-  const handleResetAll = () => {
-    Alert.alert("Reset all data?", "This will erase onboarding, logs, and login state.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Reset",
-        style: "destructive",
-        onPress: () => {
-          resetProfile?.();
-          resetGoal?.();
-          resetLogs?.();
-          resetSub?.();
-          setLoggedIn?.(false);
-          setOnboardingDone?.(false);
-          nav.reset({ index: 0, routes: [{ name: "Splash" }] });
-        },
-      },
-    ]);
-  };
 
   const handlePurchase = async () => {
     if (isPurchasing) return;
     setIsPurchasing(true);
     try {
       await SubscriptionService.purchaseSubscription("monthly_subscription");
-      // Don't show success here - the purchase listener will handle it
-      // and update the subscription store. If successful, user will be
-      // entitled and can navigate to the app.
       
-      // Check if purchase was successful by checking entitlement after a short delay
       setTimeout(() => {
-        if (isEntitled) {
+        const currentEntitlement = useSubscriptionStore.getState().isEntitled;
+        if (currentEntitlement) {
           Alert.alert(
             "Welcome to Premium! 🎉",
             "Your subscription is now active. Enjoy full access to all premium features!",
@@ -91,7 +53,6 @@ export default function Paywall({ navigation }: Props) {
       console.error("❌ Purchase failed:", error);
       setIsPurchasing(false);
       
-      // Don't show error for user cancellation
       if (error?.code === "E_USER_CANCELLED") {
         return;
       }
@@ -217,7 +178,6 @@ export default function Paywall({ navigation }: Props) {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header section */}
         <View style={styles.header}>
           <Text style={[styles.badge, { backgroundColor: ACCENT, color: "#FFFFFF" }]}>
             PREMIUM
@@ -230,7 +190,6 @@ export default function Paywall({ navigation }: Props) {
           </Text>
         </View>
 
-        {/* Premium features with icons */}
         <View style={styles.featuresContainer}>
           {[
             { icon: "🎯", title: "Personalized Goals", desc: "AI-powered calorie targets that adapt to your progress" },
@@ -250,7 +209,6 @@ export default function Paywall({ navigation }: Props) {
           ))}
         </View>
 
-        {/* Pricing card */}
         <View style={[styles.pricingCard, { backgroundColor: ACCENT }]}>
           <View style={styles.pricingMain}>
             <Text style={styles.currentPrice}>$4.99</Text>
@@ -259,7 +217,6 @@ export default function Paywall({ navigation }: Props) {
           <Text style={styles.pricingNote}>Billed monthly</Text>
         </View>
 
-        {/* Actions */}
         <View style={styles.actions}>
           <PrimaryCTA 
             onPress={handlePurchase} 
@@ -271,7 +228,6 @@ export default function Paywall({ navigation }: Props) {
             Auto-renews monthly. Cancel anytime in your account settings.
           </Text>
 
-          {/* Restore purchases info and button */}
           <View style={styles.restoreSection}>
             <Text style={[styles.restoreInfo, { color: PLACEHOLDER }]}>
               Already subscribed or paid before? Restore your purchase.
@@ -284,42 +240,15 @@ export default function Paywall({ navigation }: Props) {
             />
           </View>
         </View>
-
-        {/* Dev tools (collapsed by default) */}
-        {__DEV__ && (
-          <View style={[styles.devTools, { borderColor: MUTED }]}>
-            <Text style={[styles.devTitle, { color: PLACEHOLDER }]}>Dev Tools</Text>
-            <View style={styles.devActions}>
-              {isEntitled && (
-                <Pressable
-                  onPress={revoke}
-                  style={({ pressed }) => [
-                    styles.devButton,
-                    { backgroundColor: "#ef4444", opacity: pressed ? 0.8 : 1 },
-                  ]}
-                >
-                  <Text style={styles.devButtonText}>Revoke</Text>
-                </Pressable>
-              )}
-              <Pressable
-                onPress={handleResetAll}
-                style={({ pressed }) => [
-                  styles.devButton,
-                  { backgroundColor: "#ef4444", opacity: pressed ? 0.8 : 1 },
-                ]}
-              >
-                <Text style={styles.devButtonText}>Reset All</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
+  safeArea: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
@@ -328,7 +257,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
   },
-  // Header section
   header: {
     alignItems: "center",
     marginBottom: 32,
@@ -355,7 +283,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
-  // Features section
   featuresContainer: {
     marginBottom: 32,
     gap: 16,
@@ -389,7 +316,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  // Pricing card
   pricingCard: {
     borderRadius: 20,
     padding: 20,
@@ -427,7 +353,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
-  // Actions section
   actions: {
     alignItems: "center",
     gap: 16,
@@ -495,7 +420,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  // Dev tools
   devTools: {
     marginTop: 32,
     padding: 16,

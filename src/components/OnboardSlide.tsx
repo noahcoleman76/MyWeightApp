@@ -39,8 +39,7 @@ export default function OnboardSlide({
   const BORDER = colors?.border ?? "#e5e7eb";
   const LOGIN_BLUE = "#2563eb";
 
-  // --- slide in from right ---
-  const startX = Dimensions.get("window").width; // start fully off-screen to the right
+  const startX = Dimensions.get("window").width;
   const slideX = useRef(new Animated.Value(startX)).current;
   const fade = useRef(new Animated.Value(0)).current;
 
@@ -73,23 +72,19 @@ export default function OnboardSlide({
             { transform: [{ translateX: slideX }], opacity: fade },
           ]}
         >
-          {/* Top image (2x size) */}
           {image ? (
             <Image source={image} style={styles.hero} resizeMode="contain" />
           ) : (
             <View style={[styles.hero, styles.placeholder, { backgroundColor: BORDER }]}>
-              <Text style={[styles.placeholderText, { color: TEXT }]}>[dashboard image]</Text>
+              <Text style={{ color: TEXT }}>[dashboard image]</Text>
             </View>
           )}
 
-          {/* Separator line */}
           <View style={[styles.separator, { backgroundColor: BORDER }]} />
 
-          {/* Text + CTA */}
           <View style={styles.contentWrap}>
             <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
 
-            {/* Big accent CTA with shadow */}
             <Button
               title={cta}
               onPress={() => nav.navigate(nextRoute)}
@@ -133,8 +128,8 @@ export default function OnboardSlide({
 }
 
 const MAX_WIDTH = 340;
-const HERO_MAX_WIDTH = 680;   // 2× visual width
-const HERO_HEIGHT = 520;      // 2× visual height
+const HERO_MAX_WIDTH = 680;
+const HERO_HEIGHT = 520;
 
 const styles = StyleSheet.create({
   container: {
@@ -160,9 +155,6 @@ const styles = StyleSheet.create({
   placeholder: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  placeholderText: {
-    // color will be applied inline
   },
   separator: {
     width: "100%",
@@ -191,7 +183,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Cross-platform shadow
   ctaShadow: {
     shadowColor: "#000",
     shadowOpacity: 0.15,
@@ -223,6 +214,5 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 12,
-    // color will be applied inline
   },
 });

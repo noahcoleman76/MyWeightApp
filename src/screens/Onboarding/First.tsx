@@ -8,8 +8,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function First() {
   const nav = useNavigation<any>();
   const { colors } = useTheme();
-
-  // Match DateInput palette tokens
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
@@ -21,17 +19,14 @@ export default function First() {
     <SafeAreaView style={[styles.safe, { backgroundColor: BG }]}>
       <BackButton />
       <View style={styles.wrap}>
-        {/* Title */}
         <Text style={[styles.title, { color: TEXT }]}>
           Let’s get some information from you to start your personalized plan
         </Text>
 
-        {/* Helper blurb */}
         <Text style={[styles.blurb, { color: SUBTLE }]}>
           We&apos;ll guide your daily targets and help you stay consistent.
         </Text>
 
-        {/* Primary CTA using Button component */}
         <Button
           title="Get Started"
           onPress={proceed}
@@ -45,7 +40,9 @@ export default function First() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: {
+    flex: 1
+  },
   wrap: {
     flex: 1,
     paddingHorizontal: 24,

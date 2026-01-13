@@ -1,4 +1,3 @@
-// src/components/ui/Toast.tsx
 import React, { useEffect, useRef } from 'react';
 import {
   View,
@@ -31,7 +30,6 @@ export const Toast: React.FC<ToastProps> = ({
 
   useEffect(() => {
     if (visible) {
-      // Show toast
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: 0,
@@ -45,7 +43,6 @@ export const Toast: React.FC<ToastProps> = ({
         }),
       ]).start();
 
-      // Auto hide
       if (autoHide) {
         const timer = setTimeout(() => {
           hideToast();
@@ -92,7 +89,7 @@ export const Toast: React.FC<ToastProps> = ({
           textColor: '#1d4ed8',
           iconName: 'information-circle' as const,
         };
-      default: // error
+      default:
         return {
           backgroundColor: '#fef2f2',
           borderColor: '#dc2626',

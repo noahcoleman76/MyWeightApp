@@ -5,7 +5,7 @@ import { useProfileStore } from "../../state/profileStore";
 import { useOnboardingTracker } from "../../hooks/useOnboardingTracker";
 
 export default function ChooseGender() {
-  useOnboardingTracker("ChooseGender"); // Track this screen
+  useOnboardingTracker("ChooseGender");
   const setGender = useProfileStore((s) => s.setGender);
   const nav = useNavigation<any>();
   const { colors } = useTheme();

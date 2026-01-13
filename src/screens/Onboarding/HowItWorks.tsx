@@ -21,7 +21,6 @@ export default function HowItWorks({ navigation }: Props) {
   useOnboardingTracker("OnboardingHowItWorks");
   const { colors } = useTheme();
 
-  // Match DateInput palette tokens
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";
@@ -37,16 +36,13 @@ export default function HowItWorks({ navigation }: Props) {
         contentContainerStyle={[styles.wrap]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
         <Text style={[styles.title, { color: TEXT }]}>This is just the beginning</Text>
 
-        {/* Helper blurb (matches DateInput tone/spacing) */}
         <Text style={[styles.blurb, { color: SUBTLE }]}>
           MyWeight helps you turn your goals into visible
           progress. How it works:
         </Text>
 
-        {/* Bullets block with same constrained width + spacing rhythm */}
         <View style={styles.inputBlock}>
           {BULLETS.map((line, idx) => (
             <View key={idx} style={styles.bulletRow}>
@@ -56,12 +52,10 @@ export default function HowItWorks({ navigation }: Props) {
           ))}
         </View>
 
-        {/* Tagline */}
         <Text style={[styles.title, { color: TEXT }]}>
           Turn one day into today.
         </Text>
 
-        {/* Primary CTA — styled like DateInput.cta */}
         <Pressable
           onPress={onNext}
           style={({ pressed }) => [
@@ -78,7 +72,6 @@ export default function HowItWorks({ navigation }: Props) {
           <Text style={styles.ctaText}>Get Started</Text>
         </Pressable>
 
-        {/* Secondary link (optional, mirrors DateInput’s subtle actions style) */}
         <Pressable onPress={onLearnMore} style={styles.secondary}>
           <Text style={[styles.secondaryText, { color: SUBTLE }]}>Learn more</Text>
         </Pressable>
@@ -94,7 +87,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: "center",
     alignItems: "center",
-    gap: 16, // mirrors DateInput vertical rhythm
+    gap: 16,
     paddingBottom: 24,
     paddingTop: 24,
   },
@@ -110,7 +103,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
   },
   inputBlock: {
-    width: 280, // same constrained width used in DateInput.inputBlock
+    width: 280,
     marginTop: 8,
     alignItems: "stretch",
     gap: 12,
@@ -139,8 +132,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     maxWidth: 360,
   },
-
-  // CTA (mirrors DateInput.cta)
   cta: {
     marginTop: 16,
     width: 260,
@@ -148,7 +139,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 0, // visually consistent with DateInput's filled CTA
+    borderWidth: 0,
   },
   ctaText: {
     color: "#FFFFFF",
@@ -156,8 +147,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textTransform: "none",
   },
-
-  // Secondary subtle link (akin to "Choose date later" styling)
   secondary: {
     marginTop: 8,
     borderRadius: 12,

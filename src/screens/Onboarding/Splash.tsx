@@ -20,14 +20,11 @@ export default function Splash() {
   const scheme = useColorScheme();
   const isDark = scheme === "dark";
 
-  // Simple splash screen - just show loading for SPLASH_MS duration
-  // All navigation logic is handled by RootNavigator.tsx
   useEffect(() => {
     console.log('🔄 Splash screen MOUNTED and displaying for', SPLASH_MS, 'ms');
     console.log('🔄 Splash screen will let RootNavigator handle all navigation after timeout');
   }, []);
 
-  // Theming
   const bg = { backgroundColor: colors.background };
   const textPrimary = { color: colors.text };
   const textSecondary = { color: isDark ? "#9CA3AF" : "#6B7280" };
@@ -37,9 +34,7 @@ export default function Splash() {
 
   return (
     <SafeAreaView style={[styles.safeArea, bg]} edges={["top", "bottom"]}>
-      {/* Centered block */}
       <View style={styles.centerBlock}>
-        {/* Shadow wrapper */}
         <View style={[styles.logoShadow, isDark && styles.logoShadowDark]}>
           <View style={styles.logoClip}>
             <Image
@@ -60,7 +55,6 @@ export default function Splash() {
         <ActivityIndicator style={styles.spinner} color={spinnerColor} />
       </View>
 
-      {/* Footer pinned to bottom */}
       <View style={styles.footer}>
         <Text style={[styles.footerText, textSecondary]}>
           My Weight — Easy Tracking Now
@@ -80,16 +74,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // --- Logo + shadow ---
   logoShadow: {
     borderRadius: RADIUS + 6,
-    // iOS shadow:
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
-    // Android shadow:
     elevation: 10,
     backgroundColor: "transparent",
     marginBottom: 20,
@@ -108,14 +98,12 @@ const styles = StyleSheet.create({
     height: LOGO_SIZE,
     borderRadius: RADIUS,
     overflow: "hidden",
-    backgroundColor: "#5eada8", // accent
+    backgroundColor: "#5eada8",
   },
   logo: {
     width: "100%",
     height: "100%",
   },
-
-  // --- Typography (readable system faces) ---
   title: {
     fontFamily: Platform.select({
       ios: "System",
@@ -142,9 +130,9 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontWeight: "400",
   },
-  spinner: { marginTop: 22 },
-
-  // --- Footer ---
+  spinner: { 
+    marginTop: 22
+   },
   footer: {
     alignItems: "center",
     paddingVertical: 12,

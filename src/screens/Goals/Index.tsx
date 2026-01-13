@@ -1,8 +1,7 @@
-// app/screens/Goals/Index.tsx
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect, useTheme } from "@react-navigation/native";
 import dayjs from "dayjs";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Keyboard,
   Modal,
@@ -24,6 +23,12 @@ import { useAuthStore } from "../../state/authStore";
 import { useGoalStore } from "../../state/goalStore";
 import { useLogStore } from "../../state/logStore";
 import { useProfileStore } from "../../state/profileStore";
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const smart1 = (n: number) => {
+  const r = round1(n);
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+};
 
 export default function Goals() {
   const { profile, setActivity, setUnits, setStartingWeightKg } = useProfileStore();
@@ -56,16 +61,9 @@ export default function Goals() {
     }, [])
   );
 
-  // ===== UNITS / DISPLAY HELPERS =====
   const [hUnits, setHUnits] = useState(profile.heightUnit ?? "in");
   const [wUnits, setWUnits] = useState(profile.weightUnit ?? "lb");
   const unitSuffix = wUnits === "kg" ? "kgs" : "lbs";
-
-  const round1 = (n: number) => Math.round(n * 10) / 10;
-  const smart1 = (n: number) => {
-    const r = round1(n);
-    return Number.isInteger(r) ? String(r) : r.toFixed(1);
-  };
 
   const fmtWeight = (kg?: number | null) => {
     if (kg == null) return "—";
@@ -73,29 +71,23 @@ export default function Goals() {
     return `${smart1(v)} ${unitSuffix}`;
   };
 
-  const numberForInput = (kg?: number | null) => {
+  const numberForInput = useCallback((kg?: number | null) => {
     if (kg == null) return "";
     const v = wUnits === "kg" ? kg : kgToLb(kg);
     return smart1(v);
-  };
+  }, [wUnits]);
 
-  // ===== INPUT STATE =====
   const [goalW, setGoalW] = useState(numberForInput(goalWeightKg));
   const [startW, setStartW] = useState(numberForInput(profile.startingWeightKg));
-
   const [lastValidGoalW, setLastValidGoalW] = useState(numberForInput(goalWeightKg));
   const [lastValidStartW, setLastValidStartW] = useState(numberForInput(profile.startingWeightKg));
-
   const [goalErr, setGoalErr] = useState<string | null>(null);
   const [startErr, setStartErr] = useState<string | null>(null);
-
-  // ===== MANUAL TARGET INPUT STATE =====
   const [manualTarget, setManualTarget] = useState(
     dailyTargetOverride != null ? String(Math.round(dailyTargetOverride)) : ""
   );
   const [manualTargetErr, setManualTargetErr] = useState<string | null>(null);
 
-  // Re-sync when units / weights change
   useEffect(() => {
     const g = numberForInput(goalWeightKg);
     const s = numberForInput(profile.startingWeightKg);
@@ -106,10 +98,8 @@ export default function Goals() {
     setStartW(s);
     setLastValidStartW(s);
     setStartErr(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wUnits, goalWeightKg, profile.startingWeightKg]);
+  }, [wUnits, goalWeightKg, profile.startingWeightKg, numberForInput]);
 
-  // Re-sync manual target when store changes
   useEffect(() => {
     setManualTarget(
       dailyTargetOverride != null ? String(Math.round(dailyTargetOverride)) : ""
@@ -117,15 +107,13 @@ export default function Goals() {
     setManualTargetErr(null);
   }, [dailyTargetOverride]);
 
-  // ===== VALIDATION HELPERS =====
   const partialOK = (s: string) => /^\d{0,3}(\.\d?)?$/.test(s);
   
-  // Basic range validation based on weight unit
   const getWeightRange = () => {
     if (wUnits === "kg") {
-      return { min: 30, max: 300 }; // kg range
+      return { min: 30, max: 300 };
     } else {
-      return { min: 66, max: 661 }; // lb range (roughly 30-300 kg)
+      return { min: 66, max: 661 };
     }
   };
   
@@ -141,7 +129,6 @@ export default function Goals() {
     return wUnits === "lb" ? lbToKg(n) : n;
   };
 
-  // Goal weight validation based on mode
   const validateGoalWeight = (goalWeightStr: string, startWeightStr: string): string | null => {
     if (!finalOK(goalWeightStr)) {
       const { min, max } = getWeightRange();
@@ -162,7 +149,6 @@ export default function Goals() {
     return null;
   };
 
-  // Starting weight validation
   const validateStartWeight = (startWeightStr: string): string | null => {
     if (!finalOK(startWeightStr)) {
       const { min, max } = getWeightRange();
@@ -174,7 +160,6 @@ export default function Goals() {
   const applyStartWeight = (s: string) => setStartingWeightKg(toKgFromInput(s));
   const applyGoalWeight = (s: string) => setGoalWeightKg(toKgFromInput(s));
 
-  // Manual target kcal validation
   const MIN_TARGET = 1000;
   const partialTargetOK = (s: string) => /^\d{0,4}$/.test(s);
   const finalTargetOK = (s: string) => {
@@ -183,7 +168,6 @@ export default function Goals() {
     return n >= MIN_TARGET;
   };
 
-  // ===== CURRENT WEIGHT RESOLUTION =====
   const latestLogged = useMemo(() => {
     const withWt = logs.filter((l) => typeof l.weightKg === "number");
     if (!withWt.length) return { kg: undefined as number | undefined, iso: undefined as string | undefined };
@@ -197,7 +181,6 @@ export default function Goals() {
     (latestLogged.kg != null ? latestLogged.kg : undefined) ??
     (profile.startingWeightKg ?? profile.currentWeightKg ?? 0);
 
-  // ===== CALORIE MATH =====
   const { maintenance, target } = useMemo(
     () =>
       computeDailyTarget({
@@ -224,7 +207,6 @@ export default function Goals() {
     isAutoTargetBelowMin ? MIN_TARGET : safeTargetRaw
   );
 
-  // manual override (from store) wins; always clamp to >= MIN_TARGET
   const effectiveTargetKcal =
     dailyTargetOverride != null && Number.isFinite(dailyTargetOverride)
       ? Math.round(Math.max(MIN_TARGET, dailyTargetOverride))
@@ -238,7 +220,6 @@ export default function Goals() {
       ? "This is the minimum required for sustainable weight loss."
       : undefined;
 
-  // ===== DERIVED TILE METRICS =====
   const isMaintain = mode === "maintain";
 
   const weightLeftDisplay =
@@ -271,7 +252,6 @@ export default function Goals() {
 
   const goalWeightDisplay = goalWeightKg != null ? fmtWeight(goalWeightKg) : undefined;
 
-  // ===== DAYS LEFT (end date OR kcal math fallback) =====
   const maintKcal = typeof maintenance === "number" ? maintenance : undefined;
 
   let daysLeft: number | undefined;
@@ -285,8 +265,8 @@ export default function Goals() {
       const maintRounded = Math.round(maintKcal);
 
       if (mode === "lose") {
-        const deficit = maintRounded - effectiveTargetKcal; // positive if target < maintenance
-        const diffKg = currentWeightKg - goalWeightKg; // >0 if weight to lose
+        const deficit = maintRounded - effectiveTargetKcal;
+        const diffKg = currentWeightKg - goalWeightKg;
         if (deficit > 0 && diffKg > 0) {
           const lbsToLose = kgToLb(diffKg);
           const totalKcal = lbsToLose * 3500;
@@ -294,8 +274,8 @@ export default function Goals() {
           daysLeftSub = `${smart1(lbsToLose)} lbs @ ${deficit} kcal/day`;
         }
       } else if (mode === "gain") {
-        const surplus = effectiveTargetKcal - maintRounded; // positive if target > maintenance
-        const diffKg = goalWeightKg - currentWeightKg; // >0 if weight to gain
+        const surplus = effectiveTargetKcal - maintRounded;
+        const diffKg = goalWeightKg - currentWeightKg;
         if (surplus > 0 && diffKg > 0) {
           const lbsToGain = kgToLb(diffKg);
           const totalKcal = lbsToGain * 3500;
@@ -306,7 +286,6 @@ export default function Goals() {
     }
   }
 
-  // ===== DATE PICKER STATE =====
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(targetDateISO ? dayjs(targetDateISO).toDate() : null);
 
@@ -319,7 +298,6 @@ export default function Goals() {
   };
   const closePicker = () => setShowPicker(false);
 
-  // ===== THEME TOKENS =====
   const { colors } = useTheme();
   const ACCENT = colors?.primary ?? "#5eada8";
   const TEXT = colors?.text ?? "#0f172a";
@@ -346,12 +324,10 @@ export default function Goals() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {/* Title */}
         <View style={s.header}>
           <Text style={[s.title, { color: TEXT, textAlign: "center" }]}>Goals</Text>
         </View>
 
-        {/* ===== TOP: Metric Cards ===== */}
         <View style={s.tilesWrap}>
           <Tile
             title="Maintenance"
@@ -427,12 +403,10 @@ export default function Goals() {
           )}
         </View>
 
-        {/* ===== MIDDLE: Edit Inputs ===== */}
         <Pressable
           style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}
           onPress={Keyboard.dismiss}
         >
-          {/* Starting Weight */}
           <Text style={[s.label, { color: MUTED }]}>Starting Weight ({wUnits})</Text>
           <TextInput
             value={startW}
@@ -455,7 +429,6 @@ export default function Goals() {
                 setStartErr(null);
                 setHasUnsavedChanges(true);
                 
-                // Re-validate goal weight if it exists
                 if (!isMaintain && goalW.trim() !== "") {
                   const goalError = validateGoalWeight(goalW, startW);
                   setGoalErr(goalError);
@@ -479,7 +452,6 @@ export default function Goals() {
           />
           {startErr ? <Text style={[s.errText]}>{startErr}</Text> : null}
 
-          {/* Goal weight + date (for lose / gain) */}
           {!isMaintain && (
             <>
               <Text style={[s.label, { color: MUTED, marginTop: 16 }]}>Goal Weight ({wUnits})</Text>
@@ -524,8 +496,17 @@ export default function Goals() {
 
               <Text style={[s.label, { color: MUTED, marginTop: 16 }]}>Desired End Date (optional)</Text>
 
-              {/* Display field that opens the picker */}
-              <Pressable onPress={openPicker} style={[s.input, { backgroundColor: CARD_BG, borderColor: BORDER, justifyContent: "center" }]}>
+              <Pressable
+                onPress={openPicker}
+                style={[
+                  s.input,
+                  {
+                    backgroundColor: CARD_BG,
+                    borderColor: BORDER,
+                    justifyContent: "center",
+                  },
+                ]}
+              >
                 <Text
                   style={{
                     fontSize: 16,
@@ -537,7 +518,6 @@ export default function Goals() {
                 </Text>
               </Pressable>
 
-              {/* Picker Modal - Different handling for iOS vs Android */}
               {Platform.OS === "ios" ? (
                 <Modal
                   animationType="fade"
@@ -609,7 +589,6 @@ export default function Goals() {
                   </Pressable>
                 </Modal>
               ) : (
-                /* Android: DateTimePicker has its own native modal */
                 showPicker && (
                   <DateTimePicker
                     mode="date"
@@ -629,7 +608,6 @@ export default function Goals() {
                 )
               )}
 
-              {/* Manual daily target override */}
               <Text style={[s.label, { color: MUTED, marginTop: 16 }]}>
                 Daily Target Calories (optional)
               </Text>
@@ -644,7 +622,6 @@ export default function Goals() {
                 onEndEditing={() => {
                   const trimmed = manualTarget.trim();
                   if (trimmed === "") {
-                    // Clear override
                     setManualTarget("");
                     setDailyTargetOverride(undefined);
                     setManualTargetErr(null);
@@ -683,7 +660,6 @@ export default function Goals() {
           )}
         </Pressable>
 
-        {/* ===== BOTTOM: Mode, Activity, Units ===== */}
         <Pressable
           style={[s.card, s.full, { backgroundColor: CARD_BG, borderColor: BORDER }]}
           onPress={Keyboard.dismiss}
@@ -763,7 +739,6 @@ export default function Goals() {
           </View>
         </Pressable>
 
-        {/* Save Changes Button - Only show when there are unsaved changes */}
         {hasUnsavedChanges && (
           <View style={[s.full, { marginTop: 24, marginBottom: 16 }]}>
             <Button
@@ -784,7 +759,7 @@ export default function Goals() {
                   setToastVisible(true);
                   setHasUnsavedChanges(false);
                 } catch (error) {
-                  console.error("Failed to sync goals:", error);
+                  console.error("❌ Failed to sync goals:", error);
                   setToastMessage("Failed to save changes. Please try again.");
                   setToastType("error");
                   setToastVisible(true);
@@ -810,7 +785,6 @@ export default function Goals() {
         )}
       </ScrollView>
 
-      {/* Toast Notification */}
       <Toast
         message={toastMessage}
         type={toastType}
@@ -820,8 +794,6 @@ export default function Goals() {
     </SafeAreaView>
   );
 }
-
-/* ---------- Small UI bits ---------- */
 
 function cap(s: string) {
   return s.slice(0, 1).toUpperCase() + s.slice(1);
@@ -878,7 +850,6 @@ function Tile({
   CARD_BG: string;
   TEXT: string;
 }) {
-  // Calculate muted color from TEXT
   const MUTED = `${TEXT}99`;
   
   return (
@@ -891,15 +862,27 @@ function Tile({
   );
 }
 
-/* ---------- Styles ---------- */
-
 const s = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { paddingBottom: 28 },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, alignItems: "center" },
-  title: { fontSize: 34, fontWeight: "800" },
-
-  full: { marginHorizontal: 20, marginBottom: 16 },
+  safe: {
+    flex: 1,
+  },
+  scroll: {
+    paddingBottom: 28,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+  },
+  full: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
   card: {
     borderRadius: 24,
     borderWidth: 1,
@@ -911,10 +894,21 @@ const s = StyleSheet.create({
     elevation: 2,
   },
 
-  label: { fontSize: 14, fontWeight: "600" },
-
-  chipsRow: { flexDirection: "row", gap: 10, marginTop: 8 },
-  chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  chipsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+  },
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 8,
+  },
 
   tilesWrap: {
     paddingHorizontal: 20,
@@ -948,7 +942,10 @@ const chipStyles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  text: { fontSize: 14, fontWeight: "600" },
+  text: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
 
 const tileStyles = StyleSheet.create({
@@ -966,9 +963,19 @@ const tileStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
-  title: { fontSize: 16, fontWeight: "600" },
-  value: { fontSize: 26, fontWeight: "800", marginTop: 4 },
-  sub: { fontSize: 12, marginTop: 2 },
+  title: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  value: {
+    fontSize: 26,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+  sub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   warning: {
     fontSize: 11,
     color: "#ef4444",
@@ -1029,7 +1036,10 @@ const modalStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  linkText: { fontSize: 14, fontWeight: "600" },
+  linkText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
   cta: {
     flex: 1,
     borderRadius: 12,
@@ -1037,5 +1047,9 @@ const modalStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  ctaText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
 });

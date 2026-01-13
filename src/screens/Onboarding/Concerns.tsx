@@ -16,14 +16,13 @@ const BASE = [
 ];
 
 export default function Concerns() {
-  useOnboardingTracker("Concerns"); // Track this screen
+  useOnboardingTracker("Concerns");
   const nav = useNavigation<any>();
   const { colors } = useTheme();
   const setConcerns = useProfileStore((s) => s.setConcerns);
   const mode = useGoalStore((s) => s.mode);
   const [sel, setSel] = useState<string[]>([]);
 
-  // Match consistent palette tokens
   const ACCENT = colors?.primary ?? "#16a34a";
   const TEXT = colors?.text ?? "#111827";
   const BG = colors?.background ?? "#FFFFFF";

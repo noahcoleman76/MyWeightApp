@@ -18,7 +18,6 @@ export default function TermsOfUse() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors?.background ?? "#f3f4f6" }]}>
-      {/* Header with back button */}
       <View style={[styles.header, { backgroundColor: CARD_BG, borderBottomColor: BORDER }]}>
         <BackButton onPress={() => navigation.goBack()} showText={false} />
         <Text style={[styles.headerTitle, { color: TEXT }]}>Terms of Use</Text>
@@ -142,7 +141,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerSpacer: {
-    width: 40, // Same width as BackButton to center the title
+    width: 40,
   },
   scrollView: {
     flex: 1,

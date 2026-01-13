@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerSpacer: {
-    width: 40, // Same width as BackButton to center the title
+    width: 40,
   },
   scrollView: {
     flex: 1,

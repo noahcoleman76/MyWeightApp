@@ -22,13 +22,11 @@ export default function CreateAccount() {
   const [showToast, setShowToast] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
 
-  // Clear errors when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       clearSignupError();
       setShowToast(false);
       return () => {
-        // Cleanup when leaving screen
         clearSignupError();
       };
     }, [clearSignupError])
@@ -47,34 +45,24 @@ export default function CreateAccount() {
   };
 
   const onCreate = async () => {
-    console.log('📝 Create Account button pressed');
-    // Clear previous errors
     clearSignupError();
     setShowToast(false);
 
-    // Validate inputs
     if (!validateInputs()) {
-      console.log('❌ Validation failed');
       return;
     }
 
-    console.log('✅ Validation passed, attempting sign up...');
     try {
       await signUp(email, password, username);
-      console.log('✅ signUp completed successfully');
-      // Clear form on success
       setUsername("");
       setEmail("");
       setPassword("");
       setUsernameError(null);
       setEmailError(null);
       setPasswordError(null);
-      console.log('📝 Form cleared, waiting for navigation...');
-      // Navigation will be handled by the auth state change
     } catch (error) {
-      // Show toast for auth errors
       setShowToast(true);
-      console.log("❌ Sign up error:", error);
+      console.error("❌ Sign up error:", error);
     }
   };
 
@@ -93,7 +81,6 @@ export default function CreateAccount() {
   const BG = colors?.background ?? "#ffffff";
   const BORDER = colors?.border ?? "#d1d5db";
   const ACCENT = colors?.primary ?? "#5eada8";
-  // Secondary text should be more visible than borders
   const SECONDARY_TEXT = colors?.text ? `${colors.text}99` : "#6b7280";
 
   return (
@@ -104,13 +91,11 @@ export default function CreateAccount() {
       showsVerticalScrollIndicator={false}
       bounces={false}
     >
-      {/* Title */}
       <Text style={[styles.title, { color: TEXT }]}>Create Account</Text>
       <Text style={[styles.subtitle, { color: SECONDARY_TEXT }]}>
         Let&apos;s set up your account to get started
       </Text>
 
-      {/* Toast for auth errors */}
       <Toast
         message={signupError?.message || ""}
         type="error"
@@ -118,7 +103,6 @@ export default function CreateAccount() {
         onDismiss={() => setShowToast(false)}
       />
 
-      {/* Inputs */}
       <View style={styles.inputContainer}>
         <AuthInput
           label="Username"
@@ -174,7 +158,6 @@ export default function CreateAccount() {
         />
       </View>
 
-      {/* Primary button */}
       <Button
         title="Create Account"
         onPress={onCreate}
@@ -186,14 +169,12 @@ export default function CreateAccount() {
 
       {Platform.OS === "ios" && (
         <>
-          {/* OR divider */}
           <View style={styles.dividerContainer}>
             <View style={[styles.dividerLine, { backgroundColor: BORDER }]} />
             <Text style={[styles.dividerText, { color: SECONDARY_TEXT }]}>or</Text>
             <View style={[styles.dividerLine, { backgroundColor: BORDER }]} />
           </View>
 
-          {/* Apple sign in (iOS only) */}
           {appleLoading ? (
             <View style={styles.appleButtonLoading}>
               <ActivityIndicator color="#ffffff" />
@@ -210,21 +191,24 @@ export default function CreateAccount() {
         </>
       )}
 
-      {/* Already have an account */}
       <View style={styles.loginContainer}>
         <Text style={[styles.loginText, { color: SECONDARY_TEXT }]}>
           Already have an account?{" "}
         </Text>
         <Pressable onPress={() => nav.navigate("Login" as never)}>
           {({ pressed }) => (
-            <Text style={[styles.loginLink, { color: ACCENT, opacity: pressed ? 0.6 : 1, textDecorationLine: "underline" }]}>
+            <Text
+              style={[
+                styles.loginLink,
+                { color: ACCENT, opacity: pressed ? 0.6 : 1, textDecorationLine: "underline" },
+              ]}
+            >
               Log in.
             </Text>
           )}
         </Pressable>
       </View>
 
-      {/* Footer legal */}
       <View style={styles.legalContainer}>
         <Text style={[styles.legalText, { color: SECONDARY_TEXT }]}>
           By creating an account, you indicate that you have read and agree to the{" "}
@@ -262,7 +246,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   subtitle: {
     fontSize: 16,
@@ -271,27 +255,15 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginTop: 32,
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 16,
-  },
   createButton: {
     marginTop: 32,
     paddingVertical: 12,
     borderRadius: 16,
-    alignItems: 'center',
-  },
-  createButtonText: {
-    fontWeight: '600',
-    fontSize: 18,
+    alignItems: "center",
   },
   dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 24,
     marginBottom: 8,
   },
@@ -303,59 +275,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   appleButton: {
-    width: '100%',
+    width: "100%",
     height: 48,
   },
   appleButtonLoading: {
-    width: '100%',
+    width: "100%",
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleButtonFallback: {
-    width: '100%',
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  appleButtonText: {
-    fontWeight: '600',
-    fontSize: 16,
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
   },
   loginContainer: {
     marginTop: 24,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
   },
   loginText: {
     fontSize: 16,
   },
   loginLink: {
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 16,
   },
   legalContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
     marginTop: 40,
     paddingHorizontal: 20,
   },
   legalText: {
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
   },
   legalLink: {
     fontSize: 12,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    fontWeight: "600",
+    textDecorationLine: "underline",
     lineHeight: 20,
-  },
-  createButtonDisabled: {
-    opacity: 0.7,
   },
 });

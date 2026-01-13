@@ -16,10 +16,10 @@ type Props = {
   suffix?: string;
   onConfirm: (n: number) => void;
   cta?: string;
-  accentColor?: string;      // optional override; defaults to theme primary
-  minYear?: number;          // optional; defaults to 1900
-  maxYear?: number;          // optional; defaults to current year
-  showHelperText?: boolean;  // optional helper error text; default true
+  accentColor?: string;
+  minYear?: number;
+  maxYear?: number;
+  showHelperText?: boolean;
 };
 
 export default function NumericInput({
@@ -47,7 +47,6 @@ export default function NumericInput({
   const [val, setVal] = useState("");
   const [focused, setFocused] = useState(false);
 
-  // Digits only, hard-limit to 4 chars (YYYY)
   const handleChange = (t: string) => {
     const digitsOnly = t.replace(/\D/g, "").slice(0, 4);
     setVal(digitsOnly);
@@ -84,18 +83,17 @@ export default function NumericInput({
             onChangeText={handleChange}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"} // native keypad
+            keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
             autoCorrect={false}
             autoCapitalize="none"
             spellCheck={false}
-            blurOnSubmit={false} // don't treat "Done" like submit
+            blurOnSubmit={false}
             selectionColor={ACCENT}
             textAlign="center"
             maxLength={4}
             placeholder={placeholder}
             placeholderTextColor={PLACEHOLDER}
             style={[styles.inputText, { color: TEXT }]}
-            // Intentionally omit inputMode/returnKeyType/onSubmitEditing to avoid the accessory bar behavior
           />
         </View>
 

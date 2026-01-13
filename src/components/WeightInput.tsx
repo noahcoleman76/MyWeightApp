@@ -22,7 +22,7 @@ type Props = {
   minWeight?: number;
   maxWeight?: number;
   showHelperText?: boolean;
-  customValidation?: (value: number) => string | null; // Returns error message or null if valid
+  customValidation?: (value: number) => string | null;
 };
 
 export default function CurrentWeight({
@@ -60,25 +60,19 @@ export default function CurrentWeight({
    * While typing, allow a trailing '.' (e.g., "150.") so the user can add the decimal digit.
    */
   const handleChange = (t: string) => {
-    // normalize comma to dot and strip invalid chars (digits or '.')
     let s = t.replace(",", ".").replace(/[^0-9.]/g, "");
 
-    // keep only the first dot
     const dotIdx = s.indexOf(".");
     if (dotIdx !== -1) {
       s = s.slice(0, dotIdx + 1) + s.slice(dotIdx + 1).replace(/\./g, "");
     }
 
-    // split parts
     let [int = "", dec = undefined] = s.split(".");
 
-    // limit integer part to 3 digits
     int = int.slice(0, 3);
 
-    // limit decimals to 1 digit if present
     if (typeof dec === "string") dec = dec.replace(/\D/g, "").slice(0, 1);
 
-    // rebuild string; preserve a trailing '.' while typing
     let out = int;
     if (dotIdx !== -1) {
       out += ".";
@@ -89,17 +83,14 @@ export default function CurrentWeight({
   };
 
   const parsed = useMemo(() => {
-    // Treat "" or just "." as NaN
     if (val.trim() === "" || val === ".") return NaN;
-    // Allow "150." => parse as 150
     const n = Number(val.endsWith(".") ? val.slice(0, -1) : val);
     return Number.isFinite(n) ? n : NaN;
   }, [val]);
 
   const hasValue = val.trim().length > 0 && val !== ".";
   const inRange = hasValue && !Number.isNaN(parsed) && parsed >= MIN && parsed <= MAX;
-  
-  // Check custom validation when value changes
+
   React.useEffect(() => {
     if (hasValue && inRange && customValidation) {
       const error = customValidation(parsed);
@@ -108,7 +99,7 @@ export default function CurrentWeight({
       setCustomError(null);
     }
   }, [parsed, hasValue, inRange, customValidation]);
-  
+
   const isValid = inRange && !customError;
 
   const showRangeHint = showHelperText && hasBlurred && hasValue && !inRange;
@@ -117,7 +108,6 @@ export default function CurrentWeight({
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: BG }]} edges={["top", "bottom"]}>
       <BackButton />
-      {/* Tap anywhere outside to dismiss keyboard */}
       <Pressable style={styles.dismissArea} onPress={() => Keyboard.dismiss()}>
         <View style={styles.container}>
           <Text style={[styles.title, { color: TEXT }]}>{title}</Text>
@@ -130,10 +120,10 @@ export default function CurrentWeight({
                 borderColor: focused
                   ? ACCENT
                   : inRange
-                  ? ACCENT
-                  : hasValue && !inRange
-                  ? "#ef4444"
-                  : MUTED,
+                    ? ACCENT
+                    : hasValue && !inRange
+                      ? "#ef4444"
+                      : MUTED,
                 shadowOpacity: focused ? 0.2 : 0.1,
               },
             ]}
@@ -150,7 +140,6 @@ export default function CurrentWeight({
                 setHasBlurred(true);
                 Keyboard.dismiss();
               }}
-              // iOS decimal keypad; Android falls back to numeric ('.' still allowed by handler)
               keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
               inputMode="decimal"
               autoCorrect={false}
@@ -158,7 +147,6 @@ export default function CurrentWeight({
               spellCheck={false}
               selectionColor={ACCENT}
               textAlign="center"
-              // 999.9 is 5 chars; allow one decimal while typing
               maxLength={5}
               placeholder={placeholder ?? `${MIN}-${MAX}`}
               placeholderTextColor={PLACEHOLDER}
@@ -210,8 +198,12 @@ export default function CurrentWeight({
 const CARD_WIDTH = 280;
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  dismissArea: { flex: 1 },
+  safeArea: {
+    flex: 1
+  },
+  dismissArea: {
+    flex: 1
+  },
   container: {
     flex: 1,
     alignItems: "center",
